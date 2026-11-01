@@ -1,0 +1,49 @@
+# Cargos que el dueño puede contratar o no. Las siglas se repiten (CRO, CCO, CSO): la clave es lo que los distingue.
+base_tools: [search_files, read_file, write_file, search_knowledge, ask_manager]
+
+# Cada área es una división real: su sala y su departamento. Las dos últimas no existen hasta que se contrata a alguien.
+groups:
+  - name: Alta dirección y estrategia
+    area: { department: Dirección, room: despacho-ceo }
+    roles:
+      - { key: ceo, code: CEO, full: Chief Executive Officer, title: Director ejecutivo, model: powerful, tools: [delegate_task, create_task, update_task, request_approval, web_search], description: "Lidera la empresa, establece la visión, toma las decisiones más importantes y dirige al equipo directivo." }
+      - { key: coo, code: COO, full: Chief Operating Officer, title: Director de operaciones, model: powerful, tools: [delegate_task, create_task, update_task, request_approval], description: "Se encarga de que todas las áreas funcionen correctamente y ejecuten la estrategia." }
+      - { key: cso_strategy, code: CSO, full: Chief Strategy Officer, title: Director de estrategia, model: powerful, tools: [delegate_task, web_search], description: "Diseña los planes de crecimiento, expansión y posicionamiento a largo plazo." }
+      - { key: chief_of_staff, code: COS, full: Chief of Staff, title: Jefe de gabinete, tools: [delete_file, request_approval], description: "Coordina las prioridades del CEO, conecta departamentos y supervisa iniciativas estratégicas." }
+
+  - name: Finanzas y administración
+    area: { department: Finanzas, room: finanzas }
+    roles:
+      - { key: cfo, code: CFO, full: Chief Financial Officer, title: Director financiero, tools: [read_finance, create_budget, spend_budget, create_task, update_task, request_approval], description: "Gestiona el dinero, presupuestos, inversiones, rentabilidad, financiación y tesorería." }
+      - { key: cao, code: CAO, full: Chief Accounting Officer, title: Director de contabilidad, tools: [read_finance, request_approval], description: "Supervisa la contabilidad, estados financieros y cierres contables." }
+      - { key: cro_risk, code: CRO, full: Chief Risk Officer, title: Director de riesgos, tools: [read_finance, read_audit, request_approval], description: "Identifica, evalúa y controla los riesgos financieros, operativos y empresariales." }
+
+  - name: Comercial, marketing y clientes
+    area: { department: Marketing, room: marketing }
+    roles:
+      - { key: cmo, code: CMO, full: Chief Marketing Officer, title: Director de marketing, tools: [delegate_task, create_task, update_task, web_search], description: "Dirige la publicidad, marca, comunicación comercial y estrategias de marketing." }
+      - { key: cco_commercial, code: CCO, full: Chief Commercial Officer, title: Director comercial, tools: [delegate_task, create_task, update_task, web_search], description: "Gestiona la actividad comercial, las ventas, los canales de distribución y los equipos comerciales." }
+      - { key: cro_revenue, code: CRO, full: Chief Revenue Officer, title: Director de ingresos, tools: [delegate_task, read_finance, web_search], description: "Maximiza los ingresos mediante la coordinación de ventas, marketing y crecimiento comercial." }
+      - { key: cxo, code: CXO, full: Chief Experience Officer, title: Director de experiencia, tools: [create_task, update_task, web_search], description: "Supervisa la experiencia global de clientes y usuarios." }
+
+  - name: Tecnología, innovación y producto
+    area: { department: Tecnología, room: tecnologia }
+    roles:
+      - { key: cto, code: CTO, full: Chief Technology Officer, title: Director tecnológico, tools: [delegate_task, create_task, update_task, web_search], description: "Lidera el desarrollo tecnológico, la infraestructura técnica y la innovación tecnológica." }
+      - { key: cio, code: CIO, full: Chief Information Officer, title: Director de sistemas de información, tools: [create_task, update_task, request_approval], description: "Gestiona los sistemas informáticos, software corporativo y tecnología interna." }
+      - { key: ciso, code: CISO, full: Chief Information Security Officer, title: Director de ciberseguridad, tools: [read_audit, request_approval], description: "Protege los sistemas, datos y activos digitales de la empresa." }
+      - { key: cpo, code: CPO, full: Chief Product Officer, title: Director de producto, tools: [delegate_task, create_task, update_task, web_search], description: "Diseña y supervisa la estrategia, desarrollo y evolución de los productos o servicios." }
+      - { key: caio, code: CAIO, full: Chief Artificial Intelligence Officer, title: Director de inteligencia artificial, tools: [delegate_task, create_task, web_search], description: "Dirige la estrategia de IA, automatización inteligente y aplicación de modelos de inteligencia artificial." }
+
+  - name: Personas, legal y organización
+    area: { department: Personas y legal, color: "#a855f7", room: personas-legal, new_room: { name: Personas y legal, x: 1, y: 30, w: 16, h: 8, color: "#e9d5ff", door: [8, 0] } }
+    roles:
+      - { key: chro, code: CHRO, full: Chief Human Resources Officer, title: Director de recursos humanos, tools: [create_task, update_task, request_approval], description: "Gestiona contratación, talento, salarios, formación y relaciones laborales." }
+      - { key: clo, code: CLO, full: Chief Legal Officer, title: Director jurídico, tools: [request_approval, web_search], description: "Supervisa contratos, asuntos legales, litigios y cumplimiento de las obligaciones jurídicas." }
+      - { key: cco_compliance, code: CCO, full: Chief Compliance Officer, title: Director de cumplimiento normativo, tools: [read_audit, request_approval], description: "Garantiza que la empresa cumpla las leyes, regulaciones y políticas internas." }
+
+  - name: Producción, logística y sostenibilidad
+    area: { department: Producción y logística, color: "#84cc16", room: produccion-logistica, new_room: { name: Producción y logística, x: 18, y: 30, w: 16, h: 8, color: "#d9f99d", door: [8, 0] } }
+    roles:
+      - { key: csco, code: CSCO, full: Chief Supply Chain Officer, title: Director de cadena de suministro, tools: [read_finance, create_task, update_task, web_search], description: "Gestiona proveedores, compras estratégicas, abastecimiento, inventarios y logística." }
+      - { key: cso_sustainability, code: CSO, full: Chief Sustainability Officer, title: Director de sostenibilidad, tools: [create_task, web_search], description: "Dirige las políticas medioambientales, sociales y de sostenibilidad empresarial." }

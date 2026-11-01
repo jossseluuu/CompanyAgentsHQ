@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 from app.core.db import Db
 from app.core.util import row, rows
 from app.domains.agents import service
+from app.domains.company import service as company_service
 from app.domains.company.service import CompanyDep
 from app.domains.runtime import service as runtime_service
 
@@ -65,6 +66,11 @@ class MemoryPatch(BaseModel):
     summary: str = Field(min_length=1)
 
 
+@router.get("/role-catalog")
+async def role_catalog(company: CompanyDep) -> dict[str, Any]:
+    return service.role_catalog()
+
+
 @router.get("/agents")
 async def list_agents(company: CompanyDep, db: Db) -> list[dict[str, Any]]:
     return await service.summaries(db, company.id)
@@ -73,6 +79,8 @@ async def list_agents(company: CompanyDep, db: Db) -> list[dict[str, Any]]:
 @router.post("/agents", status_code=201)
 async def create_agent(body: AgentIn, company: CompanyDep, db: Db) -> dict[str, Any]:
     fields = body.model_dump(exclude={"seat_x", "seat_y", "name", "role"})
+    if not body.home_room_id:
+        fields.update(await company_service.place_role(db, company.id, body.role))
     agent = await service.create(db, company.id, name=body.name, role=body.role, seat=(body.seat_x, body.seat_y), **fields)
     await runtime_service.agent_hired(db, agent)
     return row(agent)

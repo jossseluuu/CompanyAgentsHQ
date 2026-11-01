@@ -1,6 +1,6 @@
 # Créditos y licencias
 
-Sin recursos gráficos de terceros: muebles y personajes se generan con primitivas.
+Sin recursos gráficos de terceros: muebles, personajes y texturas pixeladas se generan por código. El estilo se inspira en juegos de bloques, sin usar nada de ellos.
 
 | Componente | Licencia |
 |---|---|

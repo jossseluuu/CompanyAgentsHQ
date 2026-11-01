@@ -10,6 +10,20 @@
 - Modelos y embeddings intercambiables, incluidos locales y Ollama (ADR 0004).
 - `temperature` solo se aplica a modelos locales: la API de Claude ya no la admite.
 
+## Validación con un modelo real
+
+Probado el 1 de noviembre de 2026 con `qwen3:8b` y `bge-m3` en Ollama 0.40, en una RTX 5050 Laptop de 8 GB.
+
+| Prueba | Resultado |
+|---|---|
+| Chat | Correcto: 45 s con el modelo sin cargar |
+| PDF subido a Finanzas y pregunta a la CFO | Correcto: cifra exacta y cita con documento y página, en 36 s |
+| Objetivo completo | Correcto: plan, aprobación, delegación y revisión. 8 tareas en 31 minutos |
+| Acción sensible | Correcto: `delete_file` espera al dueño; al rechazarla, el fichero se conserva |
+| Auditoría | Correcto: `/audit/verify` devuelve `valid: true` con 130 eventos |
+
+Fue una sola pasada con una empresa de prueba: no mide la calidad de lo que escribe el modelo. Citó un `[1]` sin fuente en un chat sin documentos. `qwen3.5:4b` no se ha probado: no llegó a descargarse.
+
 ## Funcionales
 
 | Módulo | Hecho | Pendiente o parcial |
@@ -37,9 +51,9 @@
 |---|---|
 | REN-03 carga < 3 s | Medido: 1,0 s con el servidor de desarrollo local |
 | REN-07 A* < 5 ms | Medido: mediana 2,2 ms y máximo 4,9 ms en 100 × 100 |
-| REN-01 ≥ 50 fps | **Sin verificar**: 30 fps con render por software, sin GPU real. Falta medirlo en un portátil |
+| REN-01 ≥ 50 fps | Medido: 142 fps con 20 agentes en una RTX 5050 Laptop, en Edge con Direct3D 11 |
 | REN-02, 08 | Sin medir (D) |
-| REN-04, 05, 06 | **Sin verificar**: no hay prueba de carga |
+| REN-04, 05, 06 | Medido en local con un solo cliente, sin concurrencia: p95 de 32 ms en 300 GET de la API; PDF de 50 páginas indexado en 6,7 s con `bge-m3`; búsqueda con 10.000 fragmentos en 94 ms de mediana, con un pico de 5,0 s en 20 consultas. **El pico no se ha explicado** |
 | TRE-01 a 04 | Hecho: reconexión con `since`, interpolación en el cliente y pestañas sincronizadas probadas. Sin medir los 500 ms |
 | ESC-01 a 04, 07 a 09 | Hecho; límites comprobados por `test_architecture.py` |
 | ESC-05 | **Sin verificar**: la cola arq y Redis no se han ejecutado. Sí se ha probado el registro de trabajos |

@@ -109,3 +109,36 @@ async def test_agent_lifecycle(api: Api) -> None:
     await api.request("DELETE", f"/agents/{identifier}", 204)
     assert identifier not in [a["id"] for a in await api.get("/agents")]
     assert (await api.get(f"/agents/{identifier}"))["archived_at"]
+
+
+async def test_role_catalog_is_optional_and_tells_repeated_acronyms_apart(api: Api) -> None:
+    before = await api.get("/agents")
+    catalog = await api.get("/role-catalog")
+    roles = [r for group in catalog["groups"] for r in group["roles"]]
+    assert len(roles) == 21
+    assert len({r["key"] for r in roles}) == 21
+    assert len(await api.get("/agents")) == len(before)
+
+    risk = next(r for r in roles if r["key"] == "cro_risk")
+    room = await room_id(api, "finanzas")
+    agent = await api.post(
+        "/agents", {"name": "Rita", "role": "cro_risk", "home_room_id": room, "tools": risk["tools"]}
+    )
+    versions = await api.get(f"/agents/{agent['id']}/prompt-versions")
+    assert "Director de riesgos (CRO, Chief Risk Officer)" in versions[0]["system_prompt"]
+    assert risk["description"] in versions[0]["system_prompt"]
+
+
+async def test_hiring_a_role_opens_its_area_room_once(api: Api) -> None:
+    before = {r["slug"] for r in (await api.get("/office"))["rooms"]}
+    assert "personas-legal" not in before
+
+    first = await api.post("/agents", {"name": "Lola", "role": "clo"})
+    second = await api.post("/agents", {"name": "Nora", "role": "chro"})
+    finance = await api.post("/agents", {"name": "Rita", "role": "cro_risk"})
+
+    rooms = {r["slug"]: r for r in (await api.get("/office"))["rooms"]}
+    assert first["home_room_id"] == second["home_room_id"] == rooms["personas-legal"]["id"]
+    assert first["department_id"] == second["department_id"]
+    assert finance["home_room_id"] == rooms["finanzas"]["id"]
+    assert set(rooms) - before == {"personas-legal"}

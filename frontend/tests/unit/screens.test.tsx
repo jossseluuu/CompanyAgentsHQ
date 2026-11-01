@@ -41,6 +41,7 @@ const profile = {
 };
 
 function respond(url: string): unknown {
+  if (url.includes("/role-catalog")) return { groups: [] };
   if (url.includes("/profile")) return profile;
   if (url.includes("/prompt-versions")) return [{ version: 1, note: "n", system_prompt: "Otro" }];
   if (url.includes("/messages")) return [{ id: "1", role: "agent", content: "Hola", citations: [{ n: 1, document: "doc.md", page: 2 }] }];
@@ -123,6 +124,7 @@ describe("pantallas", () => {
   it("organigrama: contratar y supervisión", async () => {
     render(wrap(<OrgChartPage />));
     expect(await screen.findByText("Otro")).toBeInTheDocument();
+    await userEvent.selectOptions(screen.getByLabelText("Cargo"), "__other");
     await userEvent.type(screen.getByLabelText("Rol"), "seo");
     await userEvent.selectOptions(screen.getByLabelText("Tipo"), "pre_approval");
     expect(screen.getByLabelText(/Herramientas/)).toBeInTheDocument();

@@ -145,6 +145,43 @@ async def _apply_template(db: AsyncSession, company: Company, template: dict[str
         await knowledge_service.grant_inherited(db, agent)
 
 
+async def place_role(db: AsyncSession, company_id: uuid.UUID, role: str) -> dict[str, uuid.UUID]:
+    """Lleva un cargo del catálogo a la sala y el departamento de su área, creándolos si aún no existen."""
+    group = next((g for g in agents_service.role_catalog()["groups"] if any(r["key"] == role for r in g["roles"])), None)
+    if group is None:
+        return {}
+    area = group["area"]
+    stmt = select(Department).where(
+        Department.company_id == company_id, Department.name == area["department"]
+    )
+    department = (await db.execute(stmt)).scalars().first()
+    if department is None:
+        department = Department(company_id=company_id, name=area["department"], color=area.get("color", "#64748b"))
+        db.add(department)
+        await db.flush()
+        name = f"Conocimiento de {department.name}"
+        await knowledge_service.ensure_base(db, company_id, "department", department.id, name)
+    room = await office_service.room_by_slug(db, company_id, area["room"])
+    if room is None and "new_room" in area:
+        spec = area["new_room"]
+        room = await office_service.create_room(
+            db,
+            company_id,
+            name=spec["name"],
+            slug=area["room"],
+            grid_x=spec["x"],
+            grid_y=spec["y"],
+            width=spec["w"],
+            height=spec["h"],
+            color=spec["color"],
+            doors=[[spec["x"] + spec["door"][0], spec["y"] + spec["door"][1]]],
+        )
+        for key in ("filing_cabinet", "task_board", "knowledge_base", "team"):
+            await office_service.install_module(db, room, key)
+        await knowledge_service.ensure_base(db, company_id, "room", room.id, f"Conocimiento de {room.name}")
+    return {"department_id": department.id, **({"home_room_id": room.id} if room else {})}
+
+
 async def update(db: AsyncSession, company: Company, fields: dict[str, Any]) -> Company:
     for key, value in fields.items():
         setattr(company, key, value)

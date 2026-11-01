@@ -36,8 +36,19 @@ function Branch({ node }: { node: Node }) {
   );
 }
 
+interface RoleGroup {
+  name: string;
+  roles: { key: string; code: string; title: string; description: string; model?: string; tools: string[] }[];
+}
+
+const OTHER_ROLE = "__other";
+const BASE_TOOLS = ["search_files", "read_file", "write_file", "search_knowledge", "ask_manager"];
+
 function HireForm() {
   const client = useQueryClient();
+  const { data: catalog } = useQuery({ queryKey: ["role-catalog"], queryFn: () => api.get<{ groups: RoleGroup[] }>("/role-catalog") });
+  const [choice, setChoice] = useState("");
+  const chosen = catalog?.groups.flatMap((g) => g.roles).find((r) => r.key === choice);
   const snapshot = useOffice((s) => s.snapshot);
   const agents = useOffice((s) => s.agents);
   const [form, setForm] = useState({ name: "", role: "", home_room_id: "", manager_id: "", department_id: "", model: "fast" });
@@ -49,10 +60,14 @@ function HireForm() {
       await api.post("/agents", {
         ...form,
         manager_id: form.manager_id || null,
-        department_id: form.department_id || null,
-        tools: ["search_files", "read_file", "write_file", "search_knowledge", "ask_manager"],
+        home_room_id: chosen ? null : form.home_room_id,
+        department_id: chosen ? null : form.department_id || null,
+        role: chosen?.key ?? form.role,
+        model: chosen?.model ?? form.model,
+        tools: chosen?.tools ?? BASE_TOOLS,
       });
       setForm({ ...form, name: "", role: "" });
+      setChoice("");
       await client.invalidateQueries({ queryKey: ["org"] });
       await client.invalidateQueries({ queryKey: ["snapshot"] });
     } catch (failure) {
@@ -63,7 +78,21 @@ function HireForm() {
     <form onSubmit={submit} className="space-y-2 rounded bg-ink-soft p-3">
       <h2 className="font-semibold">Contratar agente</h2>
       <Field label="Nombre"><input required className={inputClass} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
-      <Field label="Rol"><input required className={inputClass} placeholder="seo, contable…" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} /></Field>
+      <Field label="Cargo">
+        <select required className={inputClass} value={choice} onChange={(e) => setChoice(e.target.value)}>
+          <option value="">Elige cargo</option>
+          {catalog?.groups.map((group) => (
+            <optgroup key={group.name} label={group.name}>
+              {group.roles.map((r) => <option key={r.key} value={r.key}>{r.code} · {r.title}</option>)}
+            </optgroup>
+          ))}
+          <option value={OTHER_ROLE}>Otro cargo…</option>
+        </select>
+      </Field>
+      {chosen && <p className="text-xs text-slate-300">{chosen.description} Irá a la sala de su área.</p>}
+      {choice === OTHER_ROLE && <Field label="Rol"><input required className={inputClass} placeholder="seo, contable…" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} /></Field>}
+      {!chosen && (
+        <>
       <Field label="Sala base">
         <select required className={inputClass} value={form.home_room_id} onChange={(e) => setForm({ ...form, home_room_id: e.target.value })}>
           <option value="">Elige sala</option>
@@ -76,6 +105,8 @@ function HireForm() {
           {snapshot?.departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
         </select>
       </Field>
+        </>
+      )}
       <Field label="Jefe">
         <select className={inputClass} value={form.manager_id} onChange={(e) => setForm({ ...form, manager_id: e.target.value })}>
           <option value="">Sin jefe</option>

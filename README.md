@@ -39,11 +39,13 @@ Por defecto no se paga nada: `LLM_PROVIDER=fake` no llama a ningún modelo y el 
 1. Instala Ollama y define la variable de entorno `OLLAMA_CONTEXT_LENGTH=16384`. El contexto por defecto es corto y los agentes perderían sus instrucciones.
 2. Descarga un modelo con soporte de herramientas y otro de embeddings:
    ```bash
-   ollama pull <modelo>
+   ollama pull qwen3:8b   # probado en 8 GB de VRAM; un objetivo de 8 tareas tarda unos 30 minutos
    ollama pull bge-m3
    ```
 3. Crea `.env` en la raíz del proyecto con `LLM_PROVIDER=ollama` y reinicia la API.
 4. En Ajustes elige el modelo potente, el rápido y los embeddings `ollama` / `bge-m3`. Si no eliges modelo, se usa el primero instalado.
+
+Si `ollama list` sale vacío pero ya descargaste modelos, mira la carpeta de modelos en los ajustes de la app de Ollama: el servidor solo ve la que tenga configurada.
 
 Si Ollama está apagado, el agente se pausa con el motivo y su tarea se retoma al reanudarlo. Un modelo sin soporte de herramientas hace fallar sus tareas: los agentes dependen de ellas.
 
@@ -64,11 +66,16 @@ Los embeddings se cambian también en Ajustes: `hash` (por defecto, sin red), `o
 
 Antes de exponerlo fuera de tu equipo pon `COOKIE_SECURE=true`, sirve la app por HTTPS y cambia `POSTGRES_PASSWORD`, `S3_ACCESS_KEY` y `S3_SECRET_KEY`.
 
+## Cargos y salas
+
+En Organigrama puedes contratar 21 cargos directivos repartidos en seis áreas, o escribir uno libre. Cada cargo va a la sala y al departamento de su área; las salas que aún no existan se crean con la primera contratación ([ADR 0007](docs/decisiones/0007-catalogo-de-cargos-y-areas.md)).
+
 ## Pruebas
 
 ```bash
 cd backend && .venv/Scripts/python -m pytest
 cd frontend && npx vitest run
+cd frontend && npx playwright install chromium         # solo la primera vez
 cd frontend && SHOTS=../docs/img npx playwright test   # con la app en marcha y una base vacía
 ```
 

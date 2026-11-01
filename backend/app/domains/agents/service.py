@@ -3,6 +3,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
+import yaml
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,13 +21,28 @@ STATUSES = {
     "waiting_approval", "flagged", "error", "paused",
 }  # fmt: skip
 MEMORY_KEEP = 20
+ROLES = Path(__file__).resolve().parents[3] / "seeds" / "roles.yaml"
+
+
+def role_catalog() -> dict[str, Any]:
+    """Cargos opcionales para contratar: ninguno se crea solo."""
+    catalog: dict[str, Any] = yaml.safe_load(ROLES.read_text(encoding="utf-8"))
+    for role in (r for group in catalog["groups"] for r in group["roles"]):
+        role["tools"] = [*catalog["base_tools"], *role.get("tools", [])]
+    return {"groups": catalog["groups"]}
 
 
 def default_prompt(role: str) -> str:
     path = PROMPTS / f"{Path(role).name}.md"
     if path.exists():
         return path.read_text(encoding="utf-8")
-    return (PROMPTS / "_plantilla.md").read_text(encoding="utf-8").replace("{rol}", role)
+    template = (PROMPTS / "_plantilla.md").read_text(encoding="utf-8")
+    known = next((r for g in role_catalog()["groups"] for r in g["roles"] if r["key"] == role), None)
+    if known is None:
+        return template.replace("{rol}", role)
+    return template.replace("{rol}", f"{known['title']} ({known['code']}, {known['full']})").replace(
+        "Cumple las tareas que te asignen con precisión.", known["description"]
+    )
 
 
 async def find(db: AsyncSession, agent_id: uuid.UUID) -> Agent | None:
