@@ -39,7 +39,7 @@ Por defecto no se paga nada: `LLM_PROVIDER=fake` no llama a ningún modelo y el 
 1. Instala Ollama y define la variable de entorno `OLLAMA_CONTEXT_LENGTH=16384`. El contexto por defecto es corto y los agentes perderían sus instrucciones.
 2. Descarga un modelo con soporte de herramientas y otro de embeddings:
    ```bash
-   ollama pull qwen3:8b   # probado en 8 GB de VRAM; un objetivo de 8 tareas tarda unos 30 minutos
+   ollama pull qwen3.5:4b   # probado en 8 GB de VRAM: un objetivo tarda entre 5 y 12 minutos
    ollama pull bge-m3
    ```
 3. Crea `.env` en la raíz del proyecto con `LLM_PROVIDER=ollama` y reinicia la API.
@@ -70,6 +70,12 @@ Antes de exponerlo fuera de tu equipo pon `COOKIE_SECURE=true`, sirve la app por
 
 En Organigrama puedes contratar 21 cargos directivos repartidos en seis áreas, o escribir uno libre. Cada cargo va a la sala y al departamento de su área; las salas que aún no existan se crean con la primera contratación ([ADR 0007](docs/decisiones/0007-catalogo-de-cargos-y-areas.md)).
 
+## Oficina y empresa
+
+- **Editar la oficina:** en Oficina, pulsa «Editar oficina» para crear, mover, redimensionar y borrar salas y colocar muebles. La app rechaza los solapes y lo que deje a un agente sin paso.
+- **Copia de seguridad:** en Ajustes, «Exportar empresa» descarga un ZIP con configuración, historial y ficheros. Se restaura al crear la empresa en una instalación nueva. El conocimiento se reindexa y las tareas en curso quedan bloqueadas para que decidas.
+- **Idioma y tema:** español o inglés y tema oscuro o claro, en Ajustes. Cambiar el idioma también cambia el de los agentes; los nombres de las salas y los agentes ya creados no se traducen.
+
 ## Pruebas
 
 ```bash
@@ -77,6 +83,7 @@ cd backend && .venv/Scripts/python -m pytest
 cd frontend && npx vitest run
 cd frontend && npx playwright install chromium         # solo la primera vez
 cd frontend && SHOTS=../docs/img npx playwright test   # con la app en marcha y una base vacía
+                                                       # E2E_CHANNEL=msedge usa el Edge instalado
 ```
 
 ## Documentación

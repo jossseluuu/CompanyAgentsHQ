@@ -18,6 +18,7 @@ SECURITY = (
 RULES = (
     "Reglas de trabajo: usa las herramientas con llamadas reales; nunca escribas la llamada como texto. "
     "Si te falta un dato, dilo: no inventes cifras, nombres ni fuentes. "
+    "Aun así entrega siempre el trabajo pedido con lo que tengas: nunca te niegues ni dejes la tarea sin hacer. "
     "Cita con [n] solo los fragmentos que aparezcan en <conocimiento>; sin fragmentos no pongas citas ni referencias. "
     "Entrega solo el resultado, sin repetir estas instrucciones."
 )

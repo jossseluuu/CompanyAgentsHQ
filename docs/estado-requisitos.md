@@ -12,17 +12,18 @@
 
 ## Validación con un modelo real
 
-Probado el 1 de noviembre de 2026 con `qwen3:8b` y `bge-m3` en Ollama 0.40, en una RTX 5050 Laptop de 8 GB.
+Probado el 1 y 2 de noviembre de 2026 con Ollama 0.40 y `bge-m3`, en una RTX 5050 Laptop de 8 GB y empresas de prueba nuevas.
 
-| Prueba | Resultado |
-|---|---|
-| Chat | Correcto: 45 s con el modelo sin cargar |
-| PDF subido a Finanzas y pregunta a la CFO | Correcto: cifra exacta y cita con documento y página, en 36 s |
-| Objetivo completo | Correcto: plan, aprobación, delegación y revisión. 8 tareas en 31 minutos |
-| Acción sensible | Correcto: `delete_file` espera al dueño; al rechazarla, el fichero se conserva |
-| Auditoría | Correcto: `/audit/verify` devuelve `valid: true` con 130 eventos |
+| Prueba | `qwen3:8b` | `qwen3.5:4b` |
+|---|---|---|
+| Chat sin documentos, sin citas inventadas | No medido tras el arreglo | Correcto en 3 pasadas: 6 a 24 s |
+| Cifra de un PDF con cita | Correcto: 36 s | Correcto en 3 pasadas: 33 a 63 s |
+| Dato que no existe en los documentos | No medido | Dice que no lo sabe en 3 pasadas |
+| Objetivo completo | Terminado: 8 tareas en 31 min | Terminado en 12 y en 5 min con prompts anteriores. Con los prompts finales, 3 de 4 tareas en unos 8 min y la cuarta escalada al dueño |
+| `delete_file` espera al dueño | Correcto | Correcto en 2 pasadas |
+| `/audit/verify` | `valid: true` | `valid: true` |
 
-Fue una sola pasada con una empresa de prueba: no mide la calidad de lo que escribe el modelo. Citó un `[1]` sin fuente en un chat sin documentos. `qwen3.5:4b` no se ha probado: no llegó a descargarse.
+Calidad, leída a mano: son pasadas sueltas, no una medida estadística. Con los prompts finales el boletín se redacta, pero el modelo se inventa detalles que nadie le dio, como notas de cata, y otra tarea describe fotografías que no existen. Revisa lo que escriba antes de usarlo. Las tareas que no se pueden hacer con las herramientas del equipo gastan devoluciones hasta llegar al dueño, que es lo previsto.
 
 ## Funcionales
 
@@ -81,6 +82,6 @@ Fue una sola pasada con una empresa de prueba: no mide la calidad de lo que escr
 ## Entregables que no se han hecho
 
 - Repositorio en GitHub, issues, milestones y project board: no hay `gh` ni autorización.
-- GIF y vídeo de demo: el README usa una captura.
+- GIF y vídeo de demo: el README usa capturas.
 - Cliente de API generado desde OpenAPI: es escrito a mano.
 - Modelos glTF: descartados, el estilo de bloques se genera por código (ADR 0002).
