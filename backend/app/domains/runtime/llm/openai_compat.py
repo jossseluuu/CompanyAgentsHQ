@@ -7,7 +7,6 @@ import httpx
 
 from app.domains.runtime.llm.base import LLMError, LLMRequest, LLMResponse, OnText, ToolCall
 
-
 MAX_OUTPUT_TOKENS = 4096
 
 
