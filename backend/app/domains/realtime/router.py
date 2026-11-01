@@ -42,9 +42,7 @@ async def websocket(socket: WebSocket, since: int | None = None) -> None:
             async with session_scope() as db:
                 stmt = select(RealtimeEvent).where(RealtimeEvent.seq > since).order_by(RealtimeEvent.seq).limit(1000)
                 for item in (await db.execute(stmt)).scalars():
-                    await socket.send_text(
-                        _encode(Event(item.type, item.data, item.ts.isoformat(), item.seq))
-                    )
+                    await socket.send_text(_encode(Event(item.type, item.data, item.ts.isoformat(), item.seq)))
         sender = asyncio.create_task(_send_loop(socket, queue))
         try:
             while True:

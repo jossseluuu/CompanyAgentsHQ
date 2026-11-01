@@ -33,6 +33,13 @@ async def find(db: AsyncSession, agent_id: uuid.UUID) -> Agent | None:
     return await db.get(Agent, agent_id)
 
 
+async def require(db: AsyncSession, agent_id: uuid.UUID | None) -> Agent:
+    agent = await db.get(Agent, agent_id) if agent_id else None
+    if agent is None:
+        raise NotFound("Agente")
+    return agent
+
+
 async def get(db: AsyncSession, company_id: uuid.UUID, agent_id: uuid.UUID) -> Agent:
     agent = await db.get(Agent, agent_id)
     if agent is None or agent.company_id != company_id:
@@ -63,9 +70,7 @@ async def seats_in_room(db: AsyncSession, room_id: uuid.UUID) -> set[tuple[int, 
     return {(a.seat_x, a.seat_y) for a in await agents_in_room(db, room_id)}
 
 
-async def occupied_tiles(
-    db: AsyncSession, company_id: uuid.UUID, exclude: uuid.UUID
-) -> set[tuple[int, int]]:
+async def occupied_tiles(db: AsyncSession, company_id: uuid.UUID, exclude: uuid.UUID) -> set[tuple[int, int]]:
     return {(a.pos_x, a.pos_y) for a in await list_active(db, company_id) if a.id != exclude}
 
 
@@ -105,9 +110,7 @@ async def update_agent(db: AsyncSession, agent: Agent, fields: dict[str, Any]) -
     await db.flush()
     if moved_department:
         await knowledge_service.grant_inherited(db, agent)
-    await audit_service.record(
-        db, agent.company_id, "owner", "agent.updated", str(agent.id), {"fields": sorted(fields)}
-    )
+    await audit_service.record(db, agent.company_id, "owner", "agent.updated", str(agent.id), {"fields": sorted(fields)})
     await emit(db, "agent.updated", row(agent))
     return agent
 
@@ -208,9 +211,7 @@ async def current_prompt(db: AsyncSession, agent_id: uuid.UUID) -> AgentPromptVe
 
 async def prompt_versions(db: AsyncSession, agent_id: uuid.UUID) -> list[AgentPromptVersion]:
     stmt = (
-        select(AgentPromptVersion)
-        .where(AgentPromptVersion.agent_id == agent_id)
-        .order_by(AgentPromptVersion.version.desc())
+        select(AgentPromptVersion).where(AgentPromptVersion.agent_id == agent_id).order_by(AgentPromptVersion.version.desc())
     )
     return list((await db.execute(stmt)).scalars())
 
@@ -246,7 +247,7 @@ async def org_chart(db: AsyncSession, company_id: uuid.UUID) -> list[dict[str, A
                "department_id": a.department_id, "reports": []}
         for a in agents
     }  # fmt: skip
-    roots = []
+    roots: list[dict[str, Any]] = []
     for agent in agents:
         parent = nodes.get(agent.manager_id) if agent.manager_id else None
         (parent["reports"] if parent else roots).append(nodes[agent.id])

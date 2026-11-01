@@ -53,6 +53,8 @@ async def request_meeting(db: AsyncSession, meeting: Any) -> None:
 
 async def agent_hired(db: AsyncSession, agent: Any) -> None:
     await knowledge_service.grant_inherited(db, agent)
+    if agent.home_room_id and (agent.seat_x, agent.seat_y) == (0, 0):
+        await office_service.assign_seat(db, agent)
 
 
 async def create_owner_task(db: AsyncSession, company_id: uuid.UUID, fields: dict[str, Any]) -> Any:
@@ -97,7 +99,7 @@ async def retry_task(db: AsyncSession, task: Any) -> None:
     task.steps_used = 0
     task.conversation = []
     await tasks_service.set_status(db, task, "pending")
-    agent = await agents_service.find(db, task.assigned_agent_id)
+    agent = await agents_service.require(db, task.assigned_agent_id)
     if agent is not None and agent.status == "error":
         await agents_service.set_status(db, agent, "idle")
     enqueue(db, "run_task", task.id)
@@ -111,7 +113,7 @@ async def cancel_task(db: AsyncSession, task: Any) -> None:
     for child in await tasks_service.children(db, task.id):
         if child.status in tasks_service.OPEN:
             await cancel_task(db, child)
-    agent = await agents_service.find(db, task.assigned_agent_id) if task.assigned_agent_id else None
+    agent = await agents_service.require(db, task.assigned_agent_id) if task.assigned_agent_id else None
     if agent is not None and agent.status == "waiting_approval":
         await agents_service.set_status(db, agent, "idle")
 
@@ -121,7 +123,7 @@ async def apply_decision(db: AsyncSession, approval: Any, approve: bool, comment
     task = await tasks_service.find_task(db, approval.task_id) if approval.task_id else None
     if task is None or task.status != "blocked":
         return
-    agent = await agents_service.find(db, task.assigned_agent_id)
+    agent = await agents_service.require(db, task.assigned_agent_id)
     if agent is not None and agent.status == "waiting_approval":
         await agents_service.set_status(db, agent, "idle")
     if approval.action_type == "review_escalation":
@@ -231,7 +233,7 @@ async def recover(lease_seconds: int = LEASE_SECONDS) -> int:
             if task.status == "in_review":
                 enqueue(db, "review_task", task.id)
                 continue
-            agent = await agents_service.find(db, task.assigned_agent_id)
+            agent = await agents_service.require(db, task.assigned_agent_id)
             if agent is not None and agent.current_task_id == task.id:
                 agent.current_task_id = None
             task.status = "pending"
@@ -270,6 +272,8 @@ async def tick(db: AsyncSession, company: Any) -> None:
         if approval.expires_at and approval.expires_at < now and approval.approver_agent_id is None:
             await apply_decision(db, approval, False, "Caducada sin respuesta", "system")
             continue
+        if approval.requester_agent_id is None:
+            continue
         supervision = next(
             (s for s in await agents_service.supervisors_of(db, approval.requester_agent_id, "pre_approval")
              if s.supervisor_id == approval.approver_agent_id),
@@ -305,8 +309,9 @@ async def publish_knowledge(db: AsyncSession, company_id: uuid.UUID) -> list[uui
 
 
 async def tick_all() -> None:
-    from app.domains.company.models import Company
     from sqlalchemy import select
+
+    from app.domains.company.models import Company
 
     async with session_scope() as db:
         for company in (await db.execute(select(Company))).scalars():

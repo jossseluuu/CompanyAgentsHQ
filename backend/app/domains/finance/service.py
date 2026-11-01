@@ -193,7 +193,6 @@ async def summary_text(db: AsyncSession, company_id: uuid.UUID) -> str:
         f"Gasto de IA del mes: {data['ai_eur']:.2f} €.",
     ]
     lines += [
-        f"Presupuesto {c['category']}: {c['budget_eur']:.2f} €, real {c['real_eur']:.2f} €."
-        for c in data["budget_vs_real"]
+        f"Presupuesto {c['category']}: {c['budget_eur']:.2f} €, real {c['real_eur']:.2f} €." for c in data["budget_vs_real"]
     ]
     return "\n".join(lines)

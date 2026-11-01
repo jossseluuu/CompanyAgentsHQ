@@ -56,7 +56,8 @@ async def build(db: AsyncSession, agent: Any) -> dict[str, Any]:
             "traces": rows(await audit_service.agent_traces(db, agent.id), "context"),
             "anomalies": rows(await audit_service.anomalies(db, agent.company_id, agent_id=agent.id)),
             "approvals": [
-                row(a) for a in await approvals_service.listing(db, agent.company_id, None)
+                row(a)
+                for a in await approvals_service.listing(db, agent.company_id, None)
                 if a.requester_agent_id == agent.id
             ],
         },

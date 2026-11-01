@@ -42,9 +42,7 @@ class Agent(Entity):
 class AgentPromptVersion(Entity):
     __tablename__ = "agent_prompt_versions"
 
-    agent_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("agents.id", ondelete="CASCADE"), index=True
-    )
+    agent_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("agents.id", ondelete="CASCADE"), index=True)
     version: Mapped[int] = mapped_column(Integer)
     system_prompt: Mapped[str] = mapped_column(Text)
     author: Mapped[str] = mapped_column(String(120), default="owner")
@@ -66,18 +64,14 @@ class Supervision(Entity):
 class Routine(Entity):
     __tablename__ = "routines"
 
-    agent_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("agents.id", ondelete="CASCADE"), unique=True
-    )
+    agent_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("agents.id", ondelete="CASCADE"), unique=True)
     rules: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
 
 
 class AgentMemory(Entity):
     __tablename__ = "agent_memories"
 
-    agent_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("agents.id", ondelete="CASCADE"), index=True
-    )
+    agent_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("agents.id", ondelete="CASCADE"), index=True)
     summary: Mapped[str] = mapped_column(Text)
     source_task_ids: Mapped[list[str]] = mapped_column(JSONB, default=list)
 

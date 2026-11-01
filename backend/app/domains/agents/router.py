@@ -75,9 +75,7 @@ async def list_agents(company: CompanyDep, db: Db) -> list[dict[str, Any]]:
 @router.post("/agents", status_code=201)
 async def create_agent(body: AgentIn, company: CompanyDep, db: Db) -> dict[str, Any]:
     fields = body.model_dump(exclude={"seat_x", "seat_y", "name", "role"})
-    agent = await service.create(
-        db, company.id, name=body.name, role=body.role, seat=(body.seat_x, body.seat_y), **fields
-    )
+    agent = await service.create(db, company.id, name=body.name, role=body.role, seat=(body.seat_x, body.seat_y), **fields)
     await runtime_service.agent_hired(db, agent)
     return row(agent)
 

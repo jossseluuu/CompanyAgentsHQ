@@ -1,5 +1,6 @@
 from typing import Any
 
+from app.core.db import commit
 from app.core.plugins import Tool, ToolContext, ToolResult
 from app.domains.agents import service as agents_service
 from app.domains.office import service as office_service
@@ -10,10 +11,10 @@ async def run(ctx: ToolContext, args: dict[str, Any]) -> ToolResult:
         return ToolResult("No tienes jefe a quien preguntar.", is_error=True)
     from app.domains.runtime.loop import ask
 
-    manager = await agents_service.find(ctx.db, ctx.agent.manager_id)
+    manager = await agents_service.require(ctx.db, ctx.agent.manager_id)
     await office_service.visit(ctx.db, ctx.agent, manager, args["question"])
     question = f"{ctx.agent.name} te pregunta:\n<pregunta>\n{args['question']}\n</pregunta>\nResponde en breve."
-    await ctx.db.commit()
+    await commit(ctx.db)
     asked = await ask(manager.id, "ask", [{"role": "user", "content": question}], task_id=ctx.task.id)
     return ToolResult(f"{manager.name} responde: {asked.response.text}")
 

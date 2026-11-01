@@ -12,9 +12,7 @@ async def run(ctx: ToolContext, args: dict[str, Any]) -> ToolResult:
     if module is None:
         return ToolResult("Esta sala no tiene pizarra.", is_error=True)
     note = {"author": ctx.agent.name, "text": args["text"], "at": utcnow().isoformat()}
-    await office_service.configure_module(
-        ctx.db, room, "whiteboard", {"notes": [*module.config.get("notes", []), note]}
-    )
+    await office_service.configure_module(ctx.db, room, "whiteboard", {"notes": [*module.config.get("notes", []), note]})
     return ToolResult("Nota añadida a la pizarra.")
 
 

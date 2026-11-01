@@ -104,7 +104,13 @@ def _interior(room: Room) -> list[Tile]:
 
 
 async def add_furniture(
-    db: AsyncSession, room: Room, module: RoomModuleRow, model_key: str, x: int, y: int, rotation: int = 0,
+    db: AsyncSession,
+    room: Room,
+    module: RoomModuleRow,
+    model_key: str,
+    x: int,
+    y: int,
+    rotation: int = 0,
     interactive: bool = False,
 ) -> Furniture:
     item = Furniture(
@@ -115,9 +121,7 @@ async def add_furniture(
     return item
 
 
-async def install_module(
-    db: AsyncSession, room: Room, key: str, config: dict[str, Any] | None = None
-) -> RoomModuleRow:
+async def install_module(db: AsyncSession, room: Room, key: str, config: dict[str, Any] | None = None) -> RoomModuleRow:
     plugin = plugins.modules().get(key)
     if plugin is None:
         raise AppError("unknown_module", f"El módulo {key} no existe", 404)
@@ -201,9 +205,7 @@ async def build_grid(db: AsyncSession, company_id: uuid.UUID) -> tuple[int, int,
     rooms = await list_rooms(db, company_id)
     blocked: set[Tile] = set()
     for room in rooms:
-        blocked |= wall_tiles(
-            room.grid_x, room.grid_y, room.width, room.height, [(d[0], d[1]) for d in room.doors]
-        )
+        blocked |= wall_tiles(room.grid_x, room.grid_y, room.width, room.height, [(d[0], d[1]) for d in room.doors])
         blocked |= {(f.grid_x, f.grid_y) for f in await _room_furniture(db, room.id)}
     return *_bounds(rooms), blocked
 
@@ -224,9 +226,7 @@ async def can_use_tools(db: AsyncSession, agent: Any, room: Room) -> bool:
     return not room.restricted or agent.home_room_id == room.id
 
 
-async def set_access(
-    db: AsyncSession, room: Room, agent_id: uuid.UUID, can_enter_room: bool, use_tools: bool
-) -> None:
+async def set_access(db: AsyncSession, room: Room, agent_id: uuid.UUID, can_enter_room: bool, use_tools: bool) -> None:
     await db.execute(delete(RoomAccess).where(RoomAccess.room_id == room.id, RoomAccess.agent_id == agent_id))
     db.add(RoomAccess(room_id=room.id, agent_id=agent_id, can_enter=can_enter_room, can_use_tools=use_tools))
     await db.flush()
@@ -245,6 +245,17 @@ async def _free_tile(db: AsyncSession, room: Room, blocked: set[Tile], agent: An
     others = await agents_service.occupied_tiles(db, room.company_id, exclude=agent.id)
     free = [t for t in _interior(room) if t not in blocked and t not in others and t not in _reserved(room)]
     return free[int(agent.id) % len(free)] if free else None
+
+
+async def assign_seat(db: AsyncSession, agent: Any) -> None:
+    room = await get_room(db, agent.company_id, agent.home_room_id)
+    _, _, blocked = await build_grid(db, agent.company_id)
+    tile = await _free_tile(db, room, blocked | await agents_service.seats_in_room(db, room.id), agent)
+    if tile is not None:
+        agent.seat_x, agent.seat_y = agent.pos_x, agent.pos_y = tile
+        agent.current_room_id = room.id
+        await db.flush()
+        await emit(db, "agent.updated", row(agent))
 
 
 async def _resolve(db: AsyncSession, agent: Any, target: str, room_id: uuid.UUID | None, blocked: set[Tile]) -> Tile | None:
@@ -266,9 +277,7 @@ async def _resolve(db: AsyncSession, agent: Any, target: str, room_id: uuid.UUID
     return await _free_tile(db, rooms[0], blocked, agent) if rooms else None
 
 
-async def _nearest_cabinet(
-    db: AsyncSession, agent: Any, room_id: uuid.UUID | None, blocked: set[Tile]
-) -> Tile | None:
+async def _nearest_cabinet(db: AsyncSession, agent: Any, room_id: uuid.UUID | None, blocked: set[Tile]) -> Tile | None:
     room = await db.get(Room, room_id or agent.home_room_id)
     if room is None:
         return None
@@ -281,9 +290,7 @@ async def _nearest_cabinet(
     return None
 
 
-async def move_agent(
-    db: AsyncSession, agent: Any, goal: Tile, reason: str, task_id: uuid.UUID | None = None
-) -> list[Tile]:
+async def move_agent(db: AsyncSession, agent: Any, goal: Tile, reason: str, task_id: uuid.UUID | None = None) -> list[Tile]:
     width, height, blocked = await build_grid(db, agent.company_id)
     start = (agent.pos_x, agent.pos_y)
     path = find_path(width, height, blocked - {start}, start, goal)

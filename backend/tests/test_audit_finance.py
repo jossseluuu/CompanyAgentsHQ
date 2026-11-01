@@ -3,7 +3,7 @@ import io
 from datetime import UTC, datetime
 
 import pytest
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.exc import DBAPIError
 
 from app.core.config import get_settings
@@ -11,7 +11,6 @@ from app.core.db import get_engine, session_scope
 from app.domains.agents.models import Agent
 from app.domains.runtime import service as runtime_service
 from app.domains.runtime.llm.router import fake
-from sqlalchemy import select
 from tests.conftest import Api, agent_id, room_id, settle
 
 
@@ -33,7 +32,9 @@ async def test_tampering_is_detected(api: Api) -> None:
     assert (await api.get("/audit/verify"))["valid"] is True
     async with get_engine().begin() as conn:
         await conn.execute(text("set session_replication_role = replica"))
-        await conn.execute(text("update audit_events set target = 'manipulado' where seq = (select min(seq) + 2 from audit_events)"))
+        await conn.execute(
+            text("update audit_events set target = 'manipulado' where seq = (select min(seq) + 2 from audit_events)")
+        )
         await conn.execute(text("set session_replication_role = origin"))
     verdict = await api.get("/audit/verify")
     assert verdict["valid"] is False and verdict["broken_at_seq"]
@@ -84,16 +85,18 @@ async def test_finance_import_budget_and_dashboard(api: Api) -> None:
     assert board["income_eur"] == 1200.5 and board["expense_eur"] == 300
     assert board["budget_vs_real"] == [{"category": "Software", "budget_eur": 500.0, "real_eur": 300.0}]
     assert board["ai_eur"] > 0 and board["ai_by_day"] and board["ai_by_agent"]
-    assert (await api.get("/costs?group_by=day"))
+    assert await api.get("/costs?group_by=day")
 
 
 async def test_bad_csv_is_rejected(api: Api) -> None:
-    response = await api.request("POST", "/finance/entries/import", 422, files={"file": ("m.csv", b"fecha,importe\nayer,x\n")})
+    response = await api.request(
+        "POST", "/finance/entries/import", 422, files={"file": ("m.csv", b"fecha,importe\nayer,x\n")}
+    )
     assert "Fila 2" in response.json()["error"]["message"]
 
 
 async def test_dashboard_publishes_knowledge_for_cfo(api: Api) -> None:
-    data = "fecha,categoria,importe,tipo\n{d},Ventas,1000,ingreso\n".format(d=datetime.now(UTC).date().isoformat())
+    data = f"fecha,categoria,importe,tipo\n{datetime.now(UTC).date().isoformat()},Ventas,1000,ingreso\n"
     await api.request("POST", "/finance/entries/import", 201, files={"file": ("m.csv", data.encode())})
     published = await api.post("/knowledge-publish")
     assert published["published"] == 1

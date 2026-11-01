@@ -71,9 +71,7 @@ async def anomalies(
 
 
 @router.patch("/audit/anomalies/{anomaly_id}")
-async def close_anomaly(
-    anomaly_id: uuid.UUID, body: AnomalyPatch, company: CompanyDep, db: Db
-) -> dict[str, Any]:
+async def close_anomaly(anomaly_id: uuid.UUID, body: AnomalyPatch, company: CompanyDep, db: Db) -> dict[str, Any]:
     return row(await service.set_anomaly_status(db, company.id, anomaly_id, body.status))
 
 

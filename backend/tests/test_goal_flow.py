@@ -155,7 +155,10 @@ async def test_supervisor_can_escalate_to_owner(api: Api) -> None:
     cmo, redactor = await agent_id(api, "cmo"), await agent_id(api, "redactor")
     await api.post("/supervisions", {"supervisor_id": cmo, "supervised_id": redactor, "kind": "pre_approval",
                                      "tools": ["write_file"]})  # fmt: skip
-    fake.push(fake.tool("write_file", name="post.md", content="hola"), fake.tool("decide", approve=False, escalate=True, comment="Tú"))
+    fake.push(
+        fake.tool("write_file", name="post.md", content="hola"),
+        fake.tool("decide", approve=False, escalate=True, comment="Tú"),
+    )
     await manual_task(api, "redactor")
     await settle()
     assert (await api.get("/company/status-bar"))["pending_approvals"] == 1
@@ -294,6 +297,17 @@ async def test_tasks_survive_restart(api: Api) -> None:
     assert await runtime_service.recover(lease_seconds=0) == 1
     await settle()
     assert (await api.get(f"/tasks/{task['id']}"))["status"] == "done"
+
+
+async def test_concurrent_reviews_do_not_deadlock(api: Api) -> None:
+    """Regresión: varios trabajos revisados a la vez por el mismo jefe mantienen la cadena íntegra."""
+    tasks = [
+        await manual_task(api, role, title=f"T{i}") for i, role in enumerate(["cmo", "cto", "cfo", "chief_of_staff"] * 3)
+    ]
+    await settle()
+    states = {(await api.get(f"/tasks/{t['id']}"))["status"] for t in tasks}
+    assert states == {"done"}
+    assert (await api.get("/audit/verify"))["valid"] is True
 
 
 async def test_every_trace_keeps_model_prompt_and_rag(api: Api) -> None:

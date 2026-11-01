@@ -1,4 +1,6 @@
 import time
+from datetime import UTC, datetime
+from decimal import Decimal
 
 import pytest
 
@@ -10,8 +12,6 @@ from app.domains.knowledge.models import EMBEDDING_DIM
 from app.domains.office.pathfinding import find_path, wall_tiles
 from app.domains.office.routines import destination
 from app.domains.runtime.llm.pricing import cost_eur
-from datetime import UTC, datetime
-from decimal import Decimal
 
 
 def test_path_avoids_obstacles() -> None:
@@ -81,7 +81,7 @@ async def test_hash_embeddings_rank_similar_text_higher() -> None:
 
 
 def test_extract_csv_rows_with_header() -> None:
-    pages = extract_pages("datos.csv", "cliente;importe\nAna;10\nLuis;20\n".encode())
+    pages = extract_pages("datos.csv", b"cliente;importe\nAna;10\nLuis;20\n")
     assert "cliente: Ana; importe: 10" in pages[0][1]
 
 

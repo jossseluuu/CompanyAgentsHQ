@@ -126,9 +126,7 @@ async def readable_bases(db: AsyncSession, agent_id: uuid.UUID, scope: str | Non
 
 
 async def can_write(db: AsyncSession, agent_id: uuid.UUID, base_id: uuid.UUID) -> bool:
-    stmt = select(KbPermission.can_write).where(
-        KbPermission.agent_id == agent_id, KbPermission.knowledge_base_id == base_id
-    )
+    stmt = select(KbPermission.can_write).where(KbPermission.agent_id == agent_id, KbPermission.knowledge_base_id == base_id)
     return bool((await db.execute(stmt)).scalar_one_or_none())
 
 
@@ -219,8 +217,13 @@ async def index_document(db: AsyncSession, document_id: uuid.UUID) -> None:
     for index, (chunk, vector) in enumerate(zip(chunks, vectors, strict=True)):
         db.add(
             KbChunk(
-                kb_document_id=document.id, chunk_index=index, content=chunk.content, page=chunk.page,
-                meta={"heading": chunk.heading}, embedding_model=embedder.key, embedding=vector,
+                kb_document_id=document.id,
+                chunk_index=index,
+                content=chunk.content,
+                page=chunk.page,
+                meta={"heading": chunk.heading},
+                embedding_model=embedder.key,
+                embedding=vector,
             )  # fmt: skip
         )
     document.status = "indexed"
@@ -276,13 +279,12 @@ async def chunks_by_id(db: AsyncSession, chunk_ids: list[uuid.UUID]) -> list[dic
         .join(KbDocument, KbDocument.id == KbChunk.kb_document_id)
         .where(KbChunk.id.in_(chunk_ids))
     )
-    return [
-        {"id": c.id, "document": d.title, "page": c.page, "content": c.content[:400]}
-        for c, d in await db.execute(stmt)
-    ]
+    return [{"id": c.id, "document": d.title, "page": c.page, "content": c.content[:400]} for c, d in await db.execute(stmt)]
 
 
-async def publish_module_sources(db: AsyncSession, company_id: uuid.UUID, rooms: list[tuple[Any, list[Any]]]) -> list[uuid.UUID]:
+async def publish_module_sources(
+    db: AsyncSession, company_id: uuid.UUID, rooms: list[tuple[Any, list[Any]]]
+) -> list[uuid.UUID]:
     """Publica lo que declara cada módulo de sala en la base de su sala (RF-CON-05)."""
     published = []
     for room, modules in rooms:
@@ -291,9 +293,7 @@ async def publish_module_sources(db: AsyncSession, company_id: uuid.UUID, rooms:
             plugin = plugins.modules().get(module.module_key)
             for source in plugin.knowledge_sources() if plugin else []:
                 content = await source.build(db, company_id)
-                document = await upsert_source(
-                    db, base, f"module:{module.module_key}:{source.title}", source.title, content
-                )
+                document = await upsert_source(db, base, f"module:{module.module_key}:{source.title}", source.title, content)
                 published.append(document.id)
     await audit_service.record(db, company_id, "system", "knowledge.published", "", {"documents": len(published)})
     return published

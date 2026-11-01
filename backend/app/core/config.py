@@ -7,10 +7,9 @@ BACKEND_DIR = Path(__file__).resolve().parents[2]
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=(".env", "../.env"), extra="ignore")
+    model_config = SettingsConfigDict(env_file=(".env", "../.env"), extra="ignore", env_ignore_empty=True)
 
     app_env: str = "dev"
-    secret_key: str = "dev-only-secret"
     database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/companyagentshq"
     redis_url: str = "redis://localhost:6379/0"
     bus_backend: str = "memory"

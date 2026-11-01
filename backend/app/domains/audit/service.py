@@ -9,6 +9,7 @@ from typing import Any
 from sqlalchemy import Date, cast, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import db as db_module
 from app.core.db import utcnow
 from app.core.errors import NotFound
 from app.core.events import clean, emit
@@ -25,22 +26,38 @@ async def record(
     target: str,
     data: dict[str, Any],
     cost: Decimal = Decimal(0),
-) -> AuditEvent:
-    """Añade un eslabón; el bloqueo serializa la cadena entre procesos."""
-    await db.execute(text("select pg_advisory_xact_lock(hashtext(:k))"), {"k": f"audit:{company_id}"})
-    stmt = (
-        select(AuditEvent.hash).where(AuditEvent.company_id == company_id).order_by(AuditEvent.seq.desc()).limit(1)
-    )
-    prev = (await db.execute(stmt)).scalar_one_or_none() or GENESIS
-    payload = clean(data)
-    ts = utcnow()
-    event = AuditEvent(
-        company_id=company_id, actor=actor, type=event_type, target=target, data=payload, cost_eur=cost,
-        prev_hash=prev, hash=compute_hash(prev, actor, event_type, target, payload, cost, ts), created_at=ts,
-    )  # fmt: skip
-    db.add(event)
-    await db.flush()
-    return event
+) -> None:
+    """Guarda el evento en la transacción; se encadena justo antes del commit."""
+    db.info.setdefault("audit", []).append((company_id, actor, event_type, target, clean(data), cost, utcnow()))
+
+
+async def chain_pending(db: AsyncSession) -> None:
+    """El candado de la cadena se toma el último, sin pedir ya más bloqueos: así no hay interbloqueos."""
+    pending = db.info.pop("audit", [])
+    for company_id in dict.fromkeys(item[0] for item in pending):
+        await db.execute(text("select pg_advisory_xact_lock(hashtext(:k))"), {"k": f"audit:{company_id}"})
+        stmt = select(AuditEvent.hash).where(AuditEvent.company_id == company_id).order_by(AuditEvent.seq.desc()).limit(1)
+        prev = (await db.execute(stmt)).scalar_one_or_none() or GENESIS
+        for owner, actor, event_type, target, payload, cost, ts in pending:
+            if owner != company_id:
+                continue
+            digest = compute_hash(prev, actor, event_type, target, payload, cost, ts)
+            db.add(
+                AuditEvent(
+                    company_id=company_id, actor=actor, type=event_type, target=target, data=payload, cost_eur=cost,
+                    prev_hash=prev, hash=digest, created_at=ts,
+                )
+            )  # fmt: skip
+            await db.flush()
+            prev = digest
+
+
+db_module.before_commit.append(chain_pending)
+
+
+def _pending(db: AsyncSession) -> list[tuple[Any, ...]]:
+    pending: list[tuple[Any, ...]] = db.info.get("audit", [])
+    return pending
 
 
 async def verify(db: AsyncSession, company_id: uuid.UUID) -> dict[str, Any]:
@@ -48,9 +65,7 @@ async def verify(db: AsyncSession, company_id: uuid.UUID) -> dict[str, Any]:
     prev = GENESIS
     count = 0
     for event in (await db.execute(stmt)).scalars():
-        expected = compute_hash(
-            prev, event.actor, event.type, event.target, event.data, event.cost_eur, event.created_at
-        )
+        expected = compute_hash(prev, event.actor, event.type, event.target, event.data, event.cost_eur, event.created_at)
         if event.prev_hash != prev or event.hash != expected:
             return {"valid": False, "broken_at_seq": event.seq, "checked": count}
         prev = event.hash
@@ -85,8 +100,7 @@ async def list_events(
 
 def export(events: list[AuditEvent], fmt: str) -> str:
     data = [
-        {**row(e), "data": json.dumps(e.data, ensure_ascii=False), "created_at": e.created_at.isoformat()}
-        for e in events
+        {**row(e), "data": json.dumps(e.data, ensure_ascii=False), "created_at": e.created_at.isoformat()} for e in events
     ]
     if fmt == "json":
         return json.dumps(data, ensure_ascii=False, default=str, indent=1)
@@ -167,9 +181,9 @@ async def spend_by_task(db: AsyncSession, agent_id: uuid.UUID, limit: int = 30) 
 
 
 async def token_totals(db: AsyncSession, agent_id: uuid.UUID) -> dict[str, int]:
-    stmt = select(
-        func.coalesce(func.sum(Trace.input_tokens), 0), func.coalesce(func.sum(Trace.output_tokens), 0)
-    ).where(Trace.agent_id == agent_id)
+    stmt = select(func.coalesce(func.sum(Trace.input_tokens), 0), func.coalesce(func.sum(Trace.output_tokens), 0)).where(
+        Trace.agent_id == agent_id
+    )
     first = (await db.execute(stmt)).one()
     return {"input": int(first[0]), "output": int(first[1])}
 
@@ -228,12 +242,11 @@ async def count_events(db: AsyncSession, company_id: uuid.UUID, event_type: str,
             AuditEvent.data["task_id"].astext == str(task_id),
         )
     )
-    return (await db.execute(stmt)).scalar_one()
+    waiting = sum(1 for e in _pending(db) if e[2] == event_type and e[4].get("task_id") == str(task_id))
+    return (await db.execute(stmt)).scalar_one() + waiting
 
 
-async def count_recent(
-    db: AsyncSession, company_id: uuid.UUID, event_type: str, actor: str, hours: int = 24
-) -> int:
+async def count_recent(db: AsyncSession, company_id: uuid.UUID, event_type: str, actor: str, hours: int = 24) -> int:
     since = utcnow() - timedelta(hours=hours)
     stmt = (
         select(func.count())
@@ -243,7 +256,8 @@ async def count_recent(
             AuditEvent.created_at >= since,
         )
     )  # fmt: skip
-    return (await db.execute(stmt)).scalar_one()
+    waiting = sum(1 for e in _pending(db) if e[2] == event_type and e[3] == actor)
+    return (await db.execute(stmt)).scalar_one() + waiting
 
 
 # Notificaciones
@@ -265,12 +279,7 @@ async def notified_today(db: AsyncSession, owner_id: uuid.UUID, kind: str) -> bo
 
 
 async def notifications(db: AsyncSession, owner_id: uuid.UUID) -> list[dict[str, Any]]:
-    stmt = (
-        select(Notification)
-        .where(Notification.owner_id == owner_id)
-        .order_by(Notification.created_at.desc())
-        .limit(50)
-    )
+    stmt = select(Notification).where(Notification.owner_id == owner_id).order_by(Notification.created_at.desc()).limit(50)
     return rows((await db.execute(stmt)).scalars())
 
 

@@ -36,9 +36,7 @@ class RoomModuleRow(Entity):
 class Furniture(Entity):
     __tablename__ = "furniture"
 
-    room_module_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("room_modules.id", ondelete="CASCADE")
-    )
+    room_module_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("room_modules.id", ondelete="CASCADE"))
     model_key: Mapped[str] = mapped_column(String(60))
     grid_x: Mapped[int] = mapped_column(Integer)
     grid_y: Mapped[int] = mapped_column(Integer)
@@ -61,9 +59,7 @@ class AgentMove(Entity):
 
     __tablename__ = "agent_moves"
 
-    agent_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("agents.id", ondelete="CASCADE"), index=True
-    )
+    agent_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("agents.id", ondelete="CASCADE"), index=True)
     task_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), index=True)
     path: Mapped[list[list[int]]] = mapped_column(JSONB)
     reason: Mapped[str] = mapped_column(String(40), default="")

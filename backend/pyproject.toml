@@ -39,6 +39,7 @@ dev = [
   "types-redis",
   "boto3-stubs",
   "pgserver>=0.1.4",
+  "moto[s3]>=5.0",
 ]
 
 [build-system]
@@ -49,12 +50,16 @@ build-backend = "setuptools.build_meta"
 include = ["app*"]
 
 [tool.ruff]
-line-length = 110
+line-length = 125
 target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "ASYNC", "S"]
-ignore = ["S101", "S311", "B008", "S105", "S106"]
+ignore = ["S101", "S311", "B008", "S105", "S106", "S603"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E501", "S", "ASYNC"]
+"alembic/*" = ["E501"]
 
 [tool.mypy]
 python_version = "3.12"

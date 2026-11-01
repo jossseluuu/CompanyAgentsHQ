@@ -90,9 +90,7 @@ async def uninstall(room_id: uuid.UUID, key: str, company: CompanyDep, db: Db) -
 
 
 @router.patch("/rooms/{room_id}/modules/{key}")
-async def configure(
-    room_id: uuid.UUID, key: str, config: dict[str, Any], company: CompanyDep, db: Db
-) -> dict[str, Any]:
+async def configure(room_id: uuid.UUID, key: str, config: dict[str, Any], company: CompanyDep, db: Db) -> dict[str, Any]:
     room = await service.get_room(db, company.id, room_id)
     return row(await service.configure_module(db, room, key, config))
 

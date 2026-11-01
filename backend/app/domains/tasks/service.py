@@ -104,9 +104,7 @@ async def children(db: AsyncSession, task_id: uuid.UUID) -> list[Task]:
 
 async def next_pending(db: AsyncSession, agent_id: uuid.UUID) -> Task | None:
     blocked_by = (
-        select(TaskDependency.task_id)
-        .join(Task, Task.id == TaskDependency.depends_on_task_id)
-        .where(Task.status != "done")
+        select(TaskDependency.task_id).join(Task, Task.id == TaskDependency.depends_on_task_id).where(Task.status != "done")
     )
     stmt = (
         select(Task)
@@ -210,7 +208,7 @@ async def goal_tasks(db: AsyncSession, goal_id: uuid.UUID) -> list[Task]:
 async def goal_tree(db: AsyncSession, goal: Goal) -> dict[str, Any]:
     tasks = await goal_tasks(db, goal.id)
     nodes = {t.id: {**row(t, *PUBLIC_EXCLUDE), "children": []} for t in tasks}
-    roots = []
+    roots: list[dict[str, Any]] = []
     for task in tasks:
         parent = nodes.get(task.parent_task_id) if task.parent_task_id else None
         (parent["children"] if parent else roots).append(nodes[task.id])

@@ -110,9 +110,7 @@ async def login(body: Credentials, response: Response, db: Db) -> dict[str, str]
 
 
 @router.get("/me")
-async def me(
-    db: Db, session: Annotated[str | None, Cookie(alias=SESSION_COOKIE)] = None
-) -> dict[str, str]:
+async def me(db: Db, session: Annotated[str | None, Cookie(alias=SESSION_COOKIE)] = None) -> dict[str, str]:
     found = await owner_from_token(db, session)
     if found is None:
         raise AppError("unauthenticated", "Inicia sesión", 401)

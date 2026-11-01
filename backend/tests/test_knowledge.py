@@ -36,9 +36,9 @@ async def test_index_and_query_with_citation(api: Api) -> None:
 
 
 async def test_pdf_citation_has_page(api: Api) -> None:
-    from pypdf import PdfWriter
-
     import io
+
+    from pypdf import PdfWriter
 
     writer = PdfWriter()
     writer.add_blank_page(100, 100)
@@ -128,6 +128,17 @@ async def test_reindex_and_switch_embedding_provider(api: Api) -> None:
     await api.patch("/company/ai", {"embeddings_provider": "hash"})
     await settle()
     assert (await api.get(f"/knowledge-bases/{base['id']}/documents"))[0]["status"] == "indexed"
+
+
+async def test_search_knowledge_fragments_reach_the_trace(api: Api) -> None:
+    base = await base_of(api, "room", "Finanzas")
+    await add_text(api, base, "politica.md", POLICY)
+    cfo = await agent_id(api, "cfo")
+    fake.push(fake.tool("search_knowledge", query="presupuesto de publicidad"))
+    task = await api.post("/tasks", {"title": "Sin relación", "agent_id": cfo})
+    await settle()
+    trace = await api.get(f"/tasks/{task['id']}/trace")
+    assert any(step["rag_chunk_ids"] for step in trace)
 
 
 async def test_fragments_are_marked_as_data(api: Api) -> None:

@@ -16,5 +16,6 @@ DEFAULT_RULES: dict[str, str] = {
 def destination(rules: dict[str, Any], status: str, tool: str | None) -> str | None:
     merged = {**DEFAULT_RULES, **rules}
     if status == "working" and tool in {"read_file", "search_files"}:
-        return merged["reading"]
-    return merged.get(status)
+        return str(merged["reading"])
+    target = merged.get(status)
+    return str(target) if target else None

@@ -41,9 +41,7 @@ async def list_files(
 
 
 @router.post("/rooms/{room_id}/files", status_code=201)
-async def upload(
-    room_id: uuid.UUID, file: UploadFile, company: CompanyDep, db: Db, folder: str = ""
-) -> dict[str, Any]:
+async def upload(room_id: uuid.UUID, file: UploadFile, company: CompanyDep, db: Db, folder: str = "") -> dict[str, Any]:
     await office_service.get_room(db, company.id, room_id)
     data = await file.read()
     return row(await service.create(db, company.id, room_id, file.filename or "fichero", data, folder=folder), *EXCLUDE)

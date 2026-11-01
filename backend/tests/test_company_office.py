@@ -66,8 +66,9 @@ async def test_room_access_rule(api: Api) -> None:
     control = await room_id(api, "sala-control")
     cfo, auditor = await agent_id(api, "cfo"), await agent_id(api, "auditor")
     async with session_scope() as db:
-        cfo_row, auditor_row = await db.get(Agent, __import__("uuid").UUID(cfo)), await db.get(
-            Agent, __import__("uuid").UUID(auditor)
+        cfo_row, auditor_row = (
+            await db.get(Agent, __import__("uuid").UUID(cfo)),
+            await db.get(Agent, __import__("uuid").UUID(auditor)),
         )
         room = await office_service.get_room(db, cfo_row.company_id, __import__("uuid").UUID(control))
         assert not await office_service.can_enter(db, cfo_row, room)
@@ -77,6 +78,14 @@ async def test_room_access_rule(api: Api) -> None:
         cfo_row = await db.get(Agent, __import__("uuid").UUID(cfo))
         room = await office_service.get_room(db, cfo_row.company_id, __import__("uuid").UUID(control))
         assert await office_service.can_enter(db, cfo_row, room)
+
+
+async def test_hired_agent_gets_a_reachable_seat(api: Api) -> None:
+    room = await room_id(api, "marketing")
+    created = await api.post("/agents", {"name": "Sara", "role": "seo", "home_room_id": room})
+    found = await api.get(f"/agents/{created['id']}")
+    assert (found["seat_x"], found["seat_y"]) != (0, 0)
+    assert found["current_room_id"] == room
 
 
 async def test_agent_lifecycle(api: Api) -> None:

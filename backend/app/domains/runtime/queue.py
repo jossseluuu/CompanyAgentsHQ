@@ -5,12 +5,14 @@ import logging
 from collections.abc import Awaitable, Callable
 from typing import Any
 
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import db as db_module
 from app.core.config import get_settings
 
 log = logging.getLogger(__name__)
+DEADLOCK_RETRIES = 3
 JOBS: dict[str, Callable[..., Awaitable[None]]] = {}
 _pool: Any = None
 _running: set[asyncio.Task[None]] = set()
@@ -22,10 +24,22 @@ def job(func: Callable[..., Awaitable[None]]) -> Callable[..., Awaitable[None]]:
     return func
 
 
+async def run_job(name: str, *args: Any) -> None:
+    """Cada paso del trabajo es atómico: si PostgreSQL detecta un interbloqueo, se repite."""
+    for attempt in range(DEADLOCK_RETRIES):
+        try:
+            await JOBS[name](*args)
+            return
+        except DBAPIError as exc:
+            if "deadlock" not in str(exc) or attempt == DEADLOCK_RETRIES - 1:
+                raise
+            await asyncio.sleep(0.1 * (attempt + 1))
+
+
 async def _inline(name: str, args: tuple[Any, ...]) -> None:
     async with _limit:
         try:
-            await JOBS[name](*args)
+            await run_job(name, *args)
         except Exception:
             log.exception("job_failed", extra={"event": name})
 

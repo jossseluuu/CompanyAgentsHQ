@@ -31,6 +31,7 @@ class Entity(Base):
 
 
 job_flusher: Callable[[list[Any]], Awaitable[None]] | None = None
+before_commit: list[Callable[[AsyncSession], Awaitable[None]]] = []
 _engine: AsyncEngine | None = None
 _sessionmaker: async_sessionmaker[AsyncSession] | None = None
 
@@ -61,6 +62,8 @@ async def commit(db: AsyncSession) -> None:
     """Confirma la transacción y solo entonces difunde los eventos que acumuló."""
     from app.core import events
 
+    for hook in before_commit:
+        await hook(db)
     pending: list[Any] = db.info.pop("events", [])
     jobs: list[Any] = db.info.pop("jobs", [])
     await db.commit()
@@ -78,6 +81,7 @@ async def session_scope() -> AsyncIterator[AsyncSession]:
         except BaseException:
             db.info.pop("events", None)
             db.info.pop("jobs", None)
+            db.info.pop("audit", None)
             await db.rollback()
             raise
 

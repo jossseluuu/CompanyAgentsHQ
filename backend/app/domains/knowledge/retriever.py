@@ -64,9 +64,7 @@ async def search(
     plain = func.plainto_tsquery(literal_column("'spanish'"), query)
     ts_query = cast(func.replace(cast(plain, Text), "&", "|"), TSQUERY)
     keyword_stmt = (
-        joined.where(KbChunk.tsv.op("@@")(ts_query))
-        .order_by(func.ts_rank(KbChunk.tsv, ts_query).desc())
-        .limit(CANDIDATES)
+        joined.where(KbChunk.tsv.op("@@")(ts_query)).order_by(func.ts_rank(KbChunk.tsv, ts_query).desc()).limit(CANDIDATES)
     )
     keyword_ids: list[uuid.UUID] = []
     if (await db.execute(text("select plainto_tsquery('spanish', :q)::text"), {"q": query})).scalar_one():
@@ -88,8 +86,15 @@ async def search(
         base = scope_of[document.knowledge_base_id]
         fragments.append(
             Fragment(
-                chunk.id, chunk.content, document.title or document.source_ref, document.id, document.file_id,
-                chunk.page, base.name, base.scope, scores[chunk.id] * LAYER_BONUS.get(base.scope, 1.0),
+                chunk.id,
+                chunk.content,
+                document.title or document.source_ref,
+                document.id,
+                document.file_id,
+                chunk.page,
+                base.name,
+                base.scope,
+                scores[chunk.id] * LAYER_BONUS.get(base.scope, 1.0),
             )  # fmt: skip
         )
     fragments.sort(key=lambda f: f.score, reverse=True)

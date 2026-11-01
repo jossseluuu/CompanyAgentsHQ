@@ -128,7 +128,7 @@ async def ask(
     from app.domains.company import service as company_service
 
     async with session_scope() as db:
-        agent = await agents_service.find(db, agent_id)
+        agent = await agents_service.require(db, agent_id)
         assert agent is not None
         company = await company_service.get(db, agent.company_id)
         reason = await finance_service.budget_block(db, company.id, agent)
@@ -160,7 +160,7 @@ async def ask(
             cost,
         )  # fmt: skip
         await finance_service.after_cost(db, company_id)
-        agent = await agents_service.find(db, agent_id)
+        agent = await agents_service.require(db, agent_id)
         assert agent is not None
         agent.steps_since_rest += 1
         await anomalies.check_spend(db, company_id, agent)
@@ -194,7 +194,7 @@ async def _start(task_id: uuid.UUID) -> str:
         task = await tasks_service.find_task(db, task_id)
         if task is None or task.status not in {"pending", "in_progress"} or not task.assigned_agent_id:
             return "stop"
-        agent = await agents_service.find(db, task.assigned_agent_id)
+        agent = await agents_service.require(db, task.assigned_agent_id)
         assert agent is not None
         company = await company_service.get(db, task.company_id)
         if company.status == "paused" or agent.status == "paused" or agent.archived_at:
@@ -228,7 +228,7 @@ async def _advance(task_id: uuid.UUID) -> str:
     async with session_scope() as db:
         task = await tasks_service.find_task(db, task_id)
         assert task is not None and task.assigned_agent_id is not None
-        agent = await agents_service.find(db, task.assigned_agent_id)
+        agent = await agents_service.require(db, task.assigned_agent_id)
         assert agent is not None
         if task.status != "in_progress":
             await release_and_next(db, agent)
@@ -259,19 +259,19 @@ async def _advance(task_id: uuid.UUID) -> str:
     except BudgetBlocked as exc:
         async with session_scope() as db:
             task = await tasks_service.find_task(db, task_id)
-            agent = await agents_service.find(db, agent_id)
+            agent = await agents_service.require(db, agent_id)
             await _hold(db, task, agent, "budget", str(exc))
         return "stop"
     except ProviderDown as exc:
         async with session_scope() as db:
             task = await tasks_service.find_task(db, task_id)
-            agent = await agents_service.find(db, agent_id)
+            agent = await agents_service.require(db, agent_id)
             await _hold(db, task, agent, "provider", f"Proveedor de IA no disponible: {exc}")
         return "stop"
     except LLMError as exc:
         async with session_scope() as db:
             task = await tasks_service.find_task(db, task_id)
-            agent = await agents_service.find(db, agent_id)
+            agent = await agents_service.require(db, agent_id)
             await _fail(db, task, agent, str(exc))
         return "stop"
 
@@ -279,7 +279,7 @@ async def _advance(task_id: uuid.UUID) -> str:
     async with session_scope() as db:
         task = await tasks_service.find_task(db, task_id)
         assert task is not None
-        agent = await agents_service.find(db, agent_id)
+        agent = await agents_service.require(db, agent_id)
         assert agent is not None
         task.conversation = [*task.conversation, {"role": "assistant", "content": response.content}]
         task.steps_used += 1
@@ -341,6 +341,8 @@ async def _process_calls(
         except AppError as exc:
             outcome = plugins.ToolResult(exc.message, is_error=True)
         results.append(_result(call, outcome.content, outcome.is_error))
+        if ctx.used_chunks:
+            _first_fragments.setdefault(task.id, []).extend(ctx.used_chunks)
     task.conversation = [*task.conversation, {"role": "user", "content": results}]
     await db.flush()
     if await anomalies.check_loop(db, task.company_id, agent, task.id):
@@ -529,12 +531,12 @@ async def plan_goal(goal_id: str) -> None:
             goal = await tasks_service.get_goal_any(db, identifier)
             await tasks_service.set_goal_status(db, goal, "failed")
             await audit_service.notify(db, goal.company_id, "goal", f"No se pudo planificar: {exc}", "/goals")
-            ceo = await agents_service.find(db, ceo_id)
+            ceo = await agents_service.require(db, ceo_id)
             await agents_service.set_status(db, ceo, "idle")
         return
     async with session_scope() as db:
         goal = await tasks_service.get_goal_any(db, identifier)
-        ceo = await agents_service.find(db, ceo_id)
+        ceo = await agents_service.require(db, ceo_id)
         goal.plan = call.input if call else {"summary": asked.response.text, "tasks": []}
         await tasks_service.set_goal_status(db, goal, "plan_review")
         await audit_service.notify(db, goal.company_id, "goal", f"Plan listo para revisar: {goal.title}", "/goals")
@@ -548,8 +550,8 @@ async def review_task(task_id: str) -> None:
         task = await tasks_service.find_task(db, identifier)
         if task is None or task.status != "in_review" or task.reviewer_agent_id is None:
             return
-        reviewer = await agents_service.find(db, task.reviewer_agent_id)
-        author = await agents_service.find(db, task.assigned_agent_id)
+        reviewer = await agents_service.require(db, task.reviewer_agent_id)
+        author = await agents_service.require(db, task.assigned_agent_id)
         assert reviewer is not None and author is not None
         if reviewer.status == "paused":
             return
@@ -569,14 +571,14 @@ async def review_task(task_id: str) -> None:
         )  # fmt: skip
     except (BudgetBlocked, ProviderDown) as exc:
         async with session_scope() as db:
-            reviewer = await agents_service.find(db, reviewer_id)
+            reviewer = await agents_service.require(db, reviewer_id)
             await agents_service.pause(db, reviewer, str(exc), "system")
         return
     except LLMError as exc:
         async with session_scope() as db:
             task = await tasks_service.find_task(db, identifier)
             await _escalate_review(db, task, f"El revisor falló: {exc}")
-            reviewer = await agents_service.find(db, reviewer_id)
+            reviewer = await agents_service.require(db, reviewer_id)
             await agents_service.set_status(db, reviewer, "idle")
         return
     call = next((c for c in asked.response.tool_calls if c.name == "review_decision"), None)
@@ -585,7 +587,7 @@ async def review_task(task_id: str) -> None:
     async with session_scope() as db:
         task = await tasks_service.find_task(db, identifier)
         assert task is not None
-        reviewer = await agents_service.find(db, reviewer_id)
+        reviewer = await agents_service.require(db, reviewer_id)
         await agents_service.set_status(db, reviewer, "idle")
         if task.status == "in_review":
             await _apply_review(db, task, reviewer_id, accept, comments)
@@ -600,7 +602,7 @@ async def _apply_review(db: AsyncSession, task: Any, reviewer_id: uuid.UUID, acc
         await complete_task(db, task)
         return
     task.rejections += 1
-    author = await agents_service.find(db, task.assigned_agent_id)
+    author = await agents_service.require(db, task.assigned_agent_id)
     await audit_service.record(
         db, task.company_id, str(reviewer_id), "task.rejected", str(task.assigned_agent_id), {"task_id": task.id}
     )
@@ -629,7 +631,7 @@ async def supervisor_decides(approval_id: str) -> None:
         approval = await approvals_service.get_any(db, identifier)
         if approval.status != "pending" or approval.approver_agent_id is None:
             return
-        approver = await agents_service.find(db, approval.approver_agent_id)
+        approver = await agents_service.require(db, approval.approver_agent_id)
         assert approver is not None
         await agents_service.set_status(db, approver, "reviewing")
         approver_id = approver.id
@@ -645,7 +647,7 @@ async def supervisor_decides(approval_id: str) -> None:
         async with session_scope() as db:
             approval = await approvals_service.get_any(db, identifier)
             await escalate(db, approval)
-            approver = await agents_service.find(db, approver_id)
+            approver = await agents_service.require(db, approver_id)
             await agents_service.set_status(db, approver, "idle")
         return
     call = next((c for c in asked.response.tool_calls if c.name == "decide"), None)
@@ -653,7 +655,7 @@ async def supervisor_decides(approval_id: str) -> None:
         from app.domains.runtime import service as runtime_service
 
         approval = await approvals_service.get_any(db, identifier)
-        approver = await agents_service.find(db, approver_id)
+        approver = await agents_service.require(db, approver_id)
         await agents_service.set_status(db, approver, "idle")
         if approval.status != "pending":
             return
@@ -676,7 +678,7 @@ async def chat_reply(agent_id: str, message_id: str) -> None:
     identifier = as_uuid(agent_id)
     reply_id = uuid.uuid4()
     async with session_scope() as db:
-        agent = await agents_service.find(db, identifier)
+        agent = await agents_service.require(db, identifier)
         assert agent is not None
         history = await agents_service.messages(db, identifier, 20)
         question = history[-1].content if history else ""
@@ -716,7 +718,7 @@ async def chat_reply(agent_id: str, message_id: str) -> None:
             messages.append({"role": "assistant", "content": asked.response.content})
             results = []
             async with session_scope() as db:
-                agent = await agents_service.find(db, identifier)
+                agent = await agents_service.require(db, identifier)
                 for call in asked.response.tool_calls:
                     tool = tools.get(call.name)
                     if tool is None:
@@ -730,7 +732,7 @@ async def chat_reply(agent_id: str, message_id: str) -> None:
     numbers = {int(n) for n in re.findall(r"\[(\d+)\]", text)}
     citations = [f.citation(i) for i, f in enumerate(fragments, start=1) if i in numbers]
     async with session_scope() as db:
-        agent = await agents_service.find(db, identifier)
+        agent = await agents_service.require(db, identifier)
         saved = await agents_service.add_message(db, identifier, "agent", text, citations)
         await anomalies.check_citations(db, agent.company_id, agent, text, bool(fragments), str(saved.id))
         await emit(db, "agent.message_done", {"agent_id": identifier, "message": row(saved), "stream_id": reply_id})
@@ -743,7 +745,7 @@ async def consolidate_memory(agent_id: str) -> None:
     """Al descansar el agente resume sus tareas recientes y reinicia sus contadores (RF-DES-02)."""
     identifier = as_uuid(agent_id)
     async with session_scope() as db:
-        agent = await agents_service.find(db, identifier)
+        agent = await agents_service.require(db, identifier)
         if agent is None or agent.status != "resting":
             return
         await emit(db, "agent.resting", {"agent_id": identifier})
@@ -755,7 +757,7 @@ async def consolidate_memory(agent_id: str) -> None:
         digest = "\n".join(f"- {m.summary}" for m in to_merge)
     if not ids:
         async with session_scope() as db:
-            agent = await agents_service.find(db, identifier)
+            agent = await agents_service.require(db, identifier)
             agent.steps_since_rest = 0
         return
     prompt = f"Resume en un párrafo lo esencial de estas notas para recordarlo en el futuro:\n{digest}"
@@ -764,7 +766,7 @@ async def consolidate_memory(agent_id: str) -> None:
     except (BudgetBlocked, ProviderDown, LLMError):
         return
     async with session_scope() as db:
-        agent = await agents_service.find(db, identifier)
+        agent = await agents_service.require(db, identifier)
         found = [await agents_service.find_memory(db, i) for i in ids]
         await agents_service.delete_memories(db, [m for m in found if m is not None])
         agent.steps_since_rest = 0
@@ -792,7 +794,7 @@ async def run_meeting(meeting_id: str) -> None:
         )  # fmt: skip
         names = {}
         for agent_id in participants:
-            agent = await agents_service.find(db, agent_id)
+            agent = await agents_service.require(db, agent_id)
             if agent:
                 names[agent_id] = agent.name
                 await agents_service.set_status(db, agent, "meeting")
@@ -814,6 +816,7 @@ async def run_meeting(meeting_id: str) -> None:
         minutes = f"Reunión interrumpida: {exc}"
     async with session_scope() as db:
         meeting = await tasks_service.get_meeting(db, identifier)
+        assert meeting is not None
         meeting.transcript = "\n".join(transcript)
         meeting.status = "done"
         rooms = await office_service.rooms_with_module(db, company_id, "filing_cabinet")
@@ -823,7 +826,7 @@ async def run_meeting(meeting_id: str) -> None:
             file = await files_service.create(db, company_id, archive.id, f"acta-{_slug(topic)}.md", body.encode())
             meeting.minutes_file_id = file.id
         for agent_id in names:
-            agent = await agents_service.find(db, agent_id)
+            agent = await agents_service.require(db, agent_id)
             if agent and agent.status == "meeting":
                 await agents_service.set_status(db, agent, "idle")
 
@@ -839,6 +842,7 @@ async def auditor_report(company_id: str) -> None:
         lines = [f"- {t.kind} {t.model}: {t.output[:160]}" for t in sample]
         verdict = await audit_service.verify(db, identifier)
         room_id, auditor_id = auditor.home_room_id, auditor.id
+        assert room_id is not None
     prompt = f"Revisa esta muestra de trazas e informa de riesgos.\nCadena íntegra: {verdict['valid']}.\n" + "\n".join(lines)
     try:
         asked = await ask(auditor_id, "audit_report", [_user(prompt)])
