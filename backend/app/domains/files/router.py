@@ -10,6 +10,7 @@ from app.core.util import row, rows
 from app.domains.company.service import CompanyDep
 from app.domains.files import service
 from app.domains.office import service as office_service
+from app.domains.runtime import service as runtime_service
 
 router = APIRouter(tags=["files"])
 EXCLUDE = ("text_content", "storage_key")
@@ -42,7 +43,9 @@ async def list_files(
 async def upload(room_id: uuid.UUID, file: UploadFile, company: CompanyDep, db: Db, folder: str = "") -> dict[str, Any]:
     await office_service.get_room(db, company.id, room_id)
     data = await file.read()
-    return row(await service.create(db, company.id, room_id, file.filename or "fichero", data, folder=folder), *EXCLUDE)
+    stored = await service.create(db, company.id, room_id, file.filename or "fichero", data, folder=folder)
+    await runtime_service.index_room_file(db, stored)
+    return row(stored, *EXCLUDE)
 
 
 @router.get("/files/search")

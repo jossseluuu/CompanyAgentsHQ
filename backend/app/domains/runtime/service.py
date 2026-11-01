@@ -47,6 +47,16 @@ async def request_indexing(db: AsyncSession, document_ids: list[uuid.UUID]) -> N
         enqueue(db, "index_document", document_id)
 
 
+async def index_room_file(db: AsyncSession, file: Any) -> None:
+    """Lo que el dueño sube a una sala pasa a ser conocimiento de esa sala, como lo que crean los agentes."""
+    base = await knowledge_service.base_for_room(db, file.company_id, file.room_id)
+    if base is None:
+        return
+    await knowledge_service.drop_file_documents(db, base, file.name)
+    document = await knowledge_service.add_document(db, base, file_id=file.id)
+    await request_indexing(db, [document.id])
+
+
 async def request_meeting(db: AsyncSession, meeting: Any) -> None:
     enqueue(db, "run_meeting", meeting.id)
 

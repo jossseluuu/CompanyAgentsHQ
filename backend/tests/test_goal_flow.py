@@ -5,7 +5,7 @@ from sqlalchemy import select
 from app.core.db import session_scope
 from app.domains.audit.models import AuditEvent, Trace
 from app.domains.runtime import service as runtime_service
-from app.domains.runtime.llm.base import LLMError
+from app.domains.runtime.llm.base import LLMError, LLMResponse
 from app.domains.runtime.llm.router import fake
 from tests.conftest import Api, agent_id, room_id, settle
 
@@ -330,3 +330,17 @@ async def test_dependencies_hold_a_task(api: Api) -> None:
     await api.post("/company/resume")
     await settle()
     assert (await api.get(f"/tasks/{second['id']}"))["status"] == "pending"
+
+
+def empty() -> LLMResponse:
+    return LLMResponse("", [], [], 1, 1, "fake")
+
+
+async def test_empty_answer_is_retried_once_and_never_counts_as_done(api: Api) -> None:
+    fake.push(empty(), empty())
+    agent = await agent_id(api, "redactor")
+    task = await api.post("/tasks", {"title": "Escribir nota", "agent_id": agent})
+    await settle()
+    task = await api.get(f"/tasks/{task['id']}")
+    assert task["status"] == "blocked"
+    assert task["blocked_reason"] == "empty_response"

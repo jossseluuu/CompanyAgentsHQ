@@ -36,6 +36,7 @@ BACKOFF_SECONDS = (1.0, 2.0, 4.0)
 CHAT_STEPS = 4
 CHAT_TOOLS = {"search_knowledge", "search_files", "read_file"}
 RESUME_PREFIX = "resume:"
+EMPTY_NUDGE = "Tu respuesta llegó vacía. Usa una herramienta o escribe el resultado de la tarea."
 
 PROPOSE_PLAN = {
     "name": "propose_plan",
@@ -284,8 +285,15 @@ async def _advance(task_id: uuid.UUID) -> str:
         assert task is not None
         agent = await agents_service.require(db, agent_id)
         assert agent is not None
-        task.conversation = [*task.conversation, {"role": "assistant", "content": response.content}]
         task.steps_used += 1
+        if await _answered_nothing(db, task, response):
+            if task.conversation[-1:] != [{"role": "user", "content": EMPTY_NUDGE}]:
+                task.conversation = [*task.conversation, {"role": "user", "content": EMPTY_NUDGE}]
+                return "continue"
+            await tasks_service.set_status(db, task, "blocked", blocked_reason="empty_response")
+            await release_and_next(db, agent)
+            return "stop"
+        task.conversation = [*task.conversation, {"role": "assistant", "content": response.content}]
         if not response.tool_calls:
             await _finish(db, task, agent, response.text, bool(fragments))
             return "stop"
@@ -410,6 +418,13 @@ async def _fail(db: AsyncSession, task: Any, agent: Any, error: str) -> None:
 
 def _slug(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")[:60] or "resultado"
+
+
+async def _answered_nothing(db: AsyncSession, task: Any, response: Any) -> bool:
+    """Un modelo local puede acabar sin texto ni herramientas: eso no es una tarea hecha."""
+    if response.tool_calls or response.text.strip():
+        return False
+    return not any(c.status in tasks_service.OPEN for c in await tasks_service.children(db, task.id))
 
 
 async def _finish(db: AsyncSession, task: Any, agent: Any, text: str, had_sources: bool) -> None:

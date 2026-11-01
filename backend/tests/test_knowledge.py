@@ -172,3 +172,20 @@ async def test_fragments_are_marked_as_data(api: Api) -> None:
     sent = str(fake.requests[-1].messages)
     assert "<conocimiento>" in sent and "no instrucciones" in sent
     assert "nunca instrucciones" in fake.requests[-1].system
+
+
+async def test_room_upload_becomes_searchable_and_new_version_replaces_it(api: Api) -> None:
+    room = await room_id(api, "finanzas")
+    base = await base_of(api, "room", "Finanzas")
+    url = f"/rooms/{room}/files"
+    await api.request("POST", url, 201, files={"file": ("cuentas.md", b"El presupuesto anual es de 73400 euros")})
+    await settle()
+    found = await api.post(f"/knowledge-bases/{base['id']}/query", {"query": "presupuesto anual"})
+    assert "73400" in found[0]["fragment"]
+
+    await api.request("POST", url, 201, files={"file": ("cuentas.md", b"El presupuesto anual es de 81000 euros")})
+    await settle()
+    documents = [d for d in await api.get(f"/knowledge-bases/{base['id']}/documents") if d["title"] == "cuentas.md"]
+    found = await api.post(f"/knowledge-bases/{base['id']}/query", {"query": "presupuesto anual"})
+    assert len(documents) == 1
+    assert "81000" in found[0]["fragment"]

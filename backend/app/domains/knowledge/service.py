@@ -163,6 +163,17 @@ async def add_document(
     return document
 
 
+async def drop_file_documents(db: AsyncSession, base: KnowledgeBase, title: str) -> None:
+    """Una versión nueva de un fichero sustituye a la anterior: lo viejo no debe citarse."""
+    stmt = select(KbDocument.id).where(
+        KbDocument.knowledge_base_id == base.id, KbDocument.title == title, KbDocument.file_id.is_not(None)
+    )
+    stale = list((await db.execute(stmt)).scalars())
+    if stale:
+        await db.execute(delete(KbChunk).where(KbChunk.kb_document_id.in_(stale)))
+        await db.execute(delete(KbDocument).where(KbDocument.id.in_(stale)))
+
+
 async def upsert_source(db: AsyncSession, base: KnowledgeBase, source_ref: str, title: str, content: str) -> KbDocument:
     """Sustituye un documento publicado por un módulo; lo identifica su source_ref."""
     stmt = select(KbDocument).where(KbDocument.knowledge_base_id == base.id, KbDocument.source_ref == source_ref)
