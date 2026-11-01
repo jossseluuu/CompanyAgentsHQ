@@ -7,11 +7,13 @@ import { useOffice } from "@/store/office";
 
 import { AgentAvatar } from "./AgentAvatar";
 import { poseAt } from "./pathAnimator";
+import { grassTexture } from "./pixelTextures";
 import { RoomMesh } from "./RoomMesh";
 
 const ZOOMS = [14, 22, 34];
 const DISTANCE = 60;
 const ELEVATION = THREE.MathUtils.degToRad(35);
+const GROUND = 240;
 
 /** El tamaño depende del alto: abrir un panel lateral no encoge la oficina. */
 const fitScale = (width: number, height: number) => Math.max(Math.min(width / 700, height / 620), 0.7);
@@ -82,6 +84,12 @@ export function OfficeScene({ picker }: { picker: MutableRefObject<ScreenToGrid 
   const [, redraw] = useState(0);
   const drag = useRef<{ x: number; y: number } | null>(null);
   const moved = useRef(false);
+  const ground = useMemo(() => {
+    const texture = grassTexture().clone();
+    texture.repeat.set(GROUND, GROUND);
+    texture.needsUpdate = true;
+    return texture;
+  }, []);
 
   if (!snapshot) return null;
   const colorOf = (departmentId: string | null) =>
@@ -121,15 +129,15 @@ export function OfficeScene({ picker }: { picker: MutableRefObject<ScreenToGrid 
         view.current.zoomLevel = Math.min(Math.max(next, 0), ZOOMS.length - 1);
       }}
     >
-      <Canvas shadows dpr={[1, 1.5]} gl={{ preserveDrawingBuffer: true }}>
-        <color attach="background" args={["#0f172a"]} />
+      <Canvas shadows dpr={[1, 1.5]} gl={{ preserveDrawingBuffer: true, antialias: false }}>
+        <color attach="background" args={["#7dd3fc"]} />
         <ambientLight intensity={1.5} />
         <directionalLight position={[30, 50, 15]} intensity={2} castShadow shadow-mapSize={[2048, 2048]}>
           <orthographicCamera attach="shadow-camera" args={[-45, 45, 45, -45, 1, 150]} />
         </directionalLight>
         <mesh position={[center.x, -0.02, center.z]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-          <planeGeometry args={[snapshot.office.width + 4, snapshot.office.height + 4]} />
-          <meshStandardMaterial color="#334155" />
+          <planeGeometry args={[GROUND, GROUND]} />
+          <meshStandardMaterial map={ground} />
         </mesh>
         {snapshot.office.rooms.map((room) => (
           <RoomMesh key={room.id} room={room} dimmed={roomDimmed(room.id)} />

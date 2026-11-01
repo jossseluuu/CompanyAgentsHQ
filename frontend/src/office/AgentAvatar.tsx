@@ -1,20 +1,23 @@
 import { Html } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { useRef } from "react";
-import type { Group, Mesh } from "three";
+import type { Group } from "three";
 
 import type { Agent } from "@/api/types";
 import { useOffice } from "@/store/office";
 
 import { poseAt } from "./pathAnimator";
+import { faceTexture, hairSideTexture, hairTexture, lookFor, shirtTexture, speckleTexture } from "./pixelTextures";
 import { STATUS } from "./status";
 
 const PROBLEMS = new Set(["error", "waiting_approval", "paused", "flagged"]);
 
 export function AgentAvatar({ agent, color }: { agent: Agent; color: string }) {
   const body = useRef<Group>(null);
-  const legL = useRef<Mesh>(null);
-  const legR = useRef<Mesh>(null);
+  const legL = useRef<Group>(null);
+  const legR = useRef<Group>(null);
+  const armL = useRef<Group>(null);
+  const armR = useRef<Group>(null);
   const openAgent = useOffice((s) => s.openAgent);
   const walk = useOffice((s) => s.walks[agent.id]);
   const flagged = useOffice((s) => s.flagged[agent.id]);
@@ -35,10 +38,14 @@ export function AgentAvatar({ agent, color }: { agent: Agent; color: string }) {
     const swing = pose.walking ? Math.sin(now / 90) * 0.6 : 0;
     if (legL.current) legL.current.rotation.x = swing;
     if (legR.current) legR.current.rotation.x = -swing;
+    if (armL.current) armL.current.rotation.x = -swing;
+    if (armR.current) armR.current.rotation.x = swing;
     const seated = !pose.walking && agent.status === "resting";
     body.current.scale.y = seated ? 0.8 : 1;
   });
 
+  const look = lookFor(agent.id);
+  const fade = { transparent: dimmed, opacity: dimmed ? 0.3 : 1 };
   const info = STATUS[flagged && agent.status !== "paused" ? "flagged" : agent.status];
   return (
     <group
@@ -57,23 +64,44 @@ export function AgentAvatar({ agent, color }: { agent: Agent; color: string }) {
       }}
       onPointerOut={() => (document.body.style.cursor = "")}
     >
-      <mesh ref={legL} position={[-0.11, 0.2, 0]} castShadow>
-        <boxGeometry args={[0.13, 0.4, 0.15]} />
-        <meshStandardMaterial color="#1e293b" />
+      <group ref={legL} position={[-0.1, 0.4, 0]}>
+        <mesh position={[0, -0.2, 0]} castShadow>
+          <boxGeometry args={[0.18, 0.4, 0.2]} />
+          <meshStandardMaterial color="#334155" map={speckleTexture()} {...fade} />
+        </mesh>
+      </group>
+      <group ref={legR} position={[0.1, 0.4, 0]}>
+        <mesh position={[0, -0.2, 0]} castShadow>
+          <boxGeometry args={[0.18, 0.4, 0.2]} />
+          <meshStandardMaterial color="#334155" map={speckleTexture()} {...fade} />
+        </mesh>
+      </group>
+      <mesh position={[0, 0.64, 0]} castShadow>
+        <boxGeometry args={[0.42, 0.48, 0.22]} />
+        <meshStandardMaterial map={shirtTexture(color)} {...fade} />
       </mesh>
-      <mesh ref={legR} position={[0.11, 0.2, 0]} castShadow>
-        <boxGeometry args={[0.13, 0.4, 0.15]} />
-        <meshStandardMaterial color="#1e293b" />
+      <group ref={armL} position={[-0.3, 0.86, 0]}>
+        <mesh position={[0, -0.22, 0]} castShadow>
+          <boxGeometry args={[0.16, 0.48, 0.18]} />
+          <meshStandardMaterial map={shirtTexture(color)} {...fade} />
+        </mesh>
+      </group>
+      <group ref={armR} position={[0.3, 0.86, 0]}>
+        <mesh position={[0, -0.22, 0]} castShadow>
+          <boxGeometry args={[0.16, 0.48, 0.18]} />
+          <meshStandardMaterial map={shirtTexture(color)} {...fade} />
+        </mesh>
+      </group>
+      <mesh position={[0, 1.1, 0]} castShadow>
+        <boxGeometry args={[0.44, 0.44, 0.44]} />
+        <meshStandardMaterial attach="material-0" map={hairSideTexture(look)} {...fade} />
+        <meshStandardMaterial attach="material-1" map={hairSideTexture(look)} {...fade} />
+        <meshStandardMaterial attach="material-2" map={hairTexture(look)} {...fade} />
+        <meshStandardMaterial attach="material-3" color={look.skin} {...fade} />
+        <meshStandardMaterial attach="material-4" map={faceTexture(look)} {...fade} />
+        <meshStandardMaterial attach="material-5" map={hairTexture(look)} {...fade} />
       </mesh>
-      <mesh position={[0, 0.62, 0]} castShadow>
-        <boxGeometry args={[0.42, 0.48, 0.26]} />
-        <meshStandardMaterial color={color} transparent={dimmed} opacity={dimmed ? 0.3 : 1} />
-      </mesh>
-      <mesh position={[0, 1.02, 0]} castShadow>
-        <sphereGeometry args={[0.2, 12, 10]} />
-        <meshStandardMaterial color="#fcd9b6" transparent={dimmed} opacity={dimmed ? 0.3 : 1} />
-      </mesh>
-      <Html position={[0, 1.55, 0]} center zIndexRange={[15, 0]} style={{ pointerEvents: "none" }}>
+      <Html position={[0, 1.65, 0]} center zIndexRange={[15, 0]} style={{ pointerEvents: "none" }}>
         <div className="flex flex-col items-center gap-0.5" style={{ opacity: dimmed ? 0.3 : 1 }}>
           {bubble && (
             <div className="w-44 rounded bg-white px-1.5 py-0.5 text-center text-xs text-slate-900 shadow">{bubble.text}</div>

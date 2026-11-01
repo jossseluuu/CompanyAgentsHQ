@@ -1,8 +1,10 @@
 import type { FurnitureItem } from "@/api/types";
 
+import { speckleTexture } from "./pixelTextures";
+
 type Part = [w: number, h: number, d: number, y: number, color: string, x?: number, z?: number];
 
-/** Muebles low-poly hechos con primitivas; sustituibles por glTF sin tocar la escena. */
+/** Muebles de bloques con textura pixelada; sustituibles por glTF sin tocar la escena. */
 const MODELS: Record<string, Part[]> = {
   desk: [
     [0.9, 0.08, 0.6, 0.45, "#a16207"],
@@ -76,7 +78,7 @@ export function Furniture({ item, onSelect }: { item: FurnitureItem; onSelect?: 
       {parts.map(([w, h, d, y, color, x = 0, z = 0], index) => (
         <mesh key={index} position={[x, y, z]} castShadow>
           <boxGeometry args={[w, h, d]} />
-          <meshStandardMaterial color={color} />
+          <meshStandardMaterial color={color} map={speckleTexture()} />
         </mesh>
       ))}
     </group>

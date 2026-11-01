@@ -6,6 +6,7 @@ import type { Room } from "@/api/types";
 import { useOffice } from "@/store/office";
 
 import { Furniture } from "./Furniture";
+import { brickTexture, tileTexture } from "./pixelTextures";
 
 const WALL_HEIGHT = 1.1;
 
@@ -31,6 +32,12 @@ export function RoomMesh({ room, dimmed }: { room: Room; dimmed: boolean }) {
     wallMesh.current.instanceMatrix.needsUpdate = true;
     wallMesh.current.computeBoundingSphere();
   }, [walls]);
+  const floor = useMemo(() => {
+    const texture = tileTexture().clone();
+    texture.repeat.set(room.width, room.height);
+    texture.needsUpdate = true;
+    return texture;
+  }, [room.width, room.height]);
   const cx = room.grid_x + (room.width - 1) / 2;
   const cz = room.grid_y + (room.height - 1) / 2;
   const moduleKey = (id: string) => room.modules.find((m) => m.id === id)?.module_key;
@@ -58,6 +65,7 @@ export function RoomMesh({ room, dimmed }: { room: Room; dimmed: boolean }) {
         <planeGeometry args={[room.width, room.height]} />
         <meshStandardMaterial
           color={room.color}
+          map={floor}
           emissive={selected || hovered ? "#6366f1" : "#000000"}
           emissiveIntensity={selected ? 0.35 : hovered ? 0.2 : 0}
           transparent={dimmed}
@@ -66,7 +74,7 @@ export function RoomMesh({ room, dimmed }: { room: Room; dimmed: boolean }) {
       </mesh>
       <instancedMesh ref={wallMesh} args={[undefined, undefined, walls.length]} castShadow>
         <boxGeometry args={[1, WALL_HEIGHT, 1]} />
-        <meshStandardMaterial color={dimmed ? "#475569" : "#cbd5e1"} />
+        <meshStandardMaterial color={dimmed ? "#64748b" : "#ffffff"} map={brickTexture()} />
       </instancedMesh>
       {room.furniture.map((item) => {
         const key = moduleKey(item.room_module_id);
