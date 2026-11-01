@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime
 from decimal import Decimal
 from typing import Any
@@ -35,6 +36,11 @@ class CompanyPatch(BaseModel):
     timezone: str | None = None
     daily_budget_eur: Decimal | None = Field(default=None, ge=0)
     monthly_budget_eur: Decimal | None = Field(default=None, ge=0)
+
+
+class DepartmentIn(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    color: str = Field(default="#64748b", pattern=r"^#[0-9a-fA-F]{6}$")
 
 
 class AiSettings(BaseModel):
@@ -97,6 +103,29 @@ async def patch_ai(body: AiSettings, company: CompanyDep, db: Db) -> dict[str, A
 async def spend(company: CompanyDep, db: Db) -> dict[str, Any]:
     now = datetime.now().date()
     return {"today_eur": await finance_service.spend_on(db, company.id, now)}
+
+
+@router.get("/departments")
+async def departments(company: CompanyDep, db: Db) -> list[dict[str, Any]]:
+    return [row(d) for d in await service.departments(db, company.id)]
+
+
+@router.post("/departments", status_code=201)
+async def create_department(body: DepartmentIn, company: CompanyDep, db: Db) -> dict[str, Any]:
+    return row(await service.create_department(db, company.id, body.name, body.color))
+
+
+@router.patch("/departments/{department_id}")
+async def update_department(department_id: uuid.UUID, body: DepartmentIn, company: CompanyDep, db: Db) -> dict[str, Any]:
+    department = await service.get_department(db, company.id, department_id)
+    department.name, department.color = body.name, body.color
+    await db.flush()
+    return row(department)
+
+
+@router.delete("/departments/{department_id}", status_code=204)
+async def delete_department(department_id: uuid.UUID, company: CompanyDep, db: Db) -> None:
+    await service.delete_department(db, await service.get_department(db, company.id, department_id))
 
 
 @router.get("/export")

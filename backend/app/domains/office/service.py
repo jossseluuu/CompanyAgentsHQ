@@ -19,6 +19,13 @@ from app.domains.office.routines import DEFAULT_RULES, TARGETS, destination
 GRID_MARGIN = 2
 _walk_generation: dict[uuid.UUID, int] = {}
 
+DECOR = frozenset(
+    {
+        "desk", "plant", "bookshelf", "sofa", "coffee_machine", "whiteboard", "board", "screen",
+        "filing_cabinet", "meeting_table", "lamp", "rug", "water_cooler", "printer",
+    }
+)  # fmt: skip
+
 
 async def get_room(db: AsyncSession, company_id: uuid.UUID, room_id: uuid.UUID) -> Room:
     room = await db.get(Room, room_id)
@@ -107,6 +114,12 @@ def _carry_doors(room: Room, x: int, y: int, width: int, height: int) -> list[li
     return doors
 
 
+def _on_wall(door: list[int], x: int, y: int, width: int, height: int) -> bool:
+    on_side = door[0] in (x, x + width - 1) and y < door[1] < y + height - 1
+    on_edge = door[1] in (y, y + height - 1) and x < door[0] < x + width - 1
+    return on_side or on_edge
+
+
 async def _reshape(db: AsyncSession, room: Room, fields: dict[str, Any]) -> None:
     x, y = fields.get("grid_x", room.grid_x), fields.get("grid_y", room.grid_y)
     width, height = fields.get("width", room.width), fields.get("height", room.height)
@@ -130,11 +143,17 @@ async def _reshape(db: AsyncSession, room: Room, fields: dict[str, Any]) -> None
 
 
 async def update_room(db: AsyncSession, room: Room, fields: dict[str, Any]) -> Room:
+    x, y = fields.get("grid_x", room.grid_x), fields.get("grid_y", room.grid_y)
+    width, height = fields.get("width", room.width), fields.get("height", room.height)
+    if not all(_on_wall(door, x, y, width, height) for door in fields.get("doors", [])):
+        raise AppError("door_outside", "La puerta debe estar en una pared de la sala", 422)
     if fields.keys() & {"grid_x", "grid_y", "width", "height"}:
         await _reshape(db, room, fields)
     for key, value in fields.items():
         setattr(room, key, value)
     await db.flush()
+    if not await _reachable(db, room):
+        raise AppError("tile_blocks_path", "Ahí dejaría a un agente sin paso", 409)
     await emit(db, "room.updated", row(room))
     return room
 
@@ -187,6 +206,35 @@ async def _reachable(db: AsyncSession, room: Room) -> bool:
         return True
     door = (room.doors[0][0], room.doors[0][1])
     return all(find_path(width, height, blocked - {seat}, door, seat) for seat in seats)
+
+
+async def place_furniture(db: AsyncSession, room: Room, model_key: str, x: int, y: int, rotation: int) -> Furniture:
+    if model_key not in DECOR:
+        raise AppError("unknown_furniture", "Ese mueble no existe", 422)
+    occupied = {(f.grid_x, f.grid_y) for f in await _room_furniture(db, room.id)}
+    if (x, y) not in _interior(room):
+        raise AppError("tile_outside", "El mueble debe quedar dentro de su sala", 409)
+    if (x, y) in occupied | _reserved(room) | await agents_service.seats_in_room(db, room.id):
+        raise AppError("tile_taken", "Esa casilla está ocupada o bloquea una puerta", 409)
+    team = await install_module(db, room, "team")
+    item = await add_furniture(db, room, team, model_key, x, y, rotation, False)
+    if not await _reachable(db, room):
+        await db.delete(item)
+        raise AppError("tile_blocks_path", "Ahí dejaría a un agente sin paso", 409)
+    await emit(db, "module.updated", {"room_id": room.id, "module_key": "team"})
+    return item
+
+
+async def remove_furniture(db: AsyncSession, company_id: uuid.UUID, furniture_id: uuid.UUID) -> None:
+    item = await db.get(Furniture, furniture_id)
+    module = await db.get(RoomModuleRow, item.room_module_id) if item else None
+    if item is None or module is None:
+        raise NotFound("Mueble")
+    room = await get_room(db, company_id, module.room_id)
+    if item.interactive:
+        raise AppError("furniture_in_use", "Ese mueble pertenece a un módulo: desinstala el módulo", 409)
+    await db.delete(item)
+    await emit(db, "module.updated", {"room_id": room.id, "module_key": module.module_key})
 
 
 async def move_furniture(
@@ -255,6 +303,10 @@ async def configure_module(db: AsyncSession, room: Room, key: str, config: dict[
     await db.flush()
     await emit(db, "module.updated", {"room_id": room.id, "module_key": key})
     return module
+
+
+def furniture_catalog() -> list[str]:
+    return sorted(DECOR)
 
 
 def routine_options() -> dict[str, Any]:

@@ -96,3 +96,31 @@ async def test_chat_without_documents_shows_no_invented_citation(api: Api) -> No
     await settle()
     last = (await api.get(f"/agents/{agent}/messages"))[-1]
     assert last["content"] == "Soy la CFO."
+
+
+async def test_departments_can_be_managed(api: Api) -> None:
+    created = await api.post("/company/departments", {"name": "Legal", "color": "#a855f7"})
+    await api.patch(f"/company/departments/{created['id']}", {"name": "Jurídico", "color": "#a855f7"})
+    assert "Jurídico" in [d["name"] for d in await api.get("/company/departments")]
+    await api.request("DELETE", f"/company/departments/{created['id']}", 204)
+    occupied = next(d for d in await api.get("/company/departments") if d["name"] == "Finanzas")
+    await api.request("DELETE", f"/company/departments/{occupied['id']}", 409)
+
+
+async def test_furniture_can_be_added_and_removed(api: Api) -> None:
+    room = await office_room(api, "sala-descanso")
+    tile = {"grid_x": room["grid_x"] + 12, "grid_y": room["grid_y"] + 4}
+    item = await api.post(f"/rooms/{room['id']}/furniture", {"model_key": "plant", **tile})
+    await api.request("POST", f"/rooms/{room['id']}/furniture", 409, json={"model_key": "lamp", **tile})
+    await api.request("POST", f"/rooms/{room['id']}/furniture", 422, json={"model_key": "nave", **tile})
+    await api.request("DELETE", f"/furniture/{item['id']}", 204)
+    interactive = next(f for f in (await office_room(api, "finanzas"))["furniture"] if f["interactive"])
+    await api.request("DELETE", f"/furniture/{interactive['id']}", 409)
+
+
+async def test_doors_must_be_on_a_wall(api: Api) -> None:
+    room = await office_room(api, "marketing")
+    inside = [room["grid_x"] + 2, room["grid_y"] + 2]
+    await api.request("PATCH", f"/rooms/{room['id']}", 422, json={"doors": [inside]})
+    side = [room["grid_x"], room["grid_y"] + 3]
+    await api.request("PATCH", f"/rooms/{room['id']}", 200, json={"doors": [side]})

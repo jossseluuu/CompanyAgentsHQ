@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.auth import CurrentOwner
 from app.core.config import BACKEND_DIR
 from app.core.db import Db
-from app.core.errors import AppError
+from app.core.errors import AppError, NotFound
 from app.core.events import emit
 from app.core.util import row, rows
 from app.domains.agents import service as agents_service
@@ -182,6 +182,30 @@ async def place_role(db: AsyncSession, company_id: uuid.UUID, role: str) -> dict
             await office_service.install_module(db, room, key)
         await knowledge_service.ensure_base(db, company_id, "room", room.id, f"Conocimiento de {room.name}")
     return {"department_id": department.id, **({"home_room_id": room.id} if room else {})}
+
+
+async def create_department(db: AsyncSession, company_id: uuid.UUID, name: str, color: str) -> Department:
+    department = Department(company_id=company_id, name=name, color=color)
+    db.add(department)
+    await db.flush()
+    await knowledge_service.ensure_base(db, company_id, "department", department.id, f"Conocimiento de {name}")
+    await audit_service.record(db, company_id, "owner", "department.created", str(department.id), {"name": name})
+    return department
+
+
+async def get_department(db: AsyncSession, company_id: uuid.UUID, department_id: uuid.UUID) -> Department:
+    department = await db.get(Department, department_id)
+    if department is None or department.company_id != company_id:
+        raise NotFound("Departamento")
+    return department
+
+
+async def delete_department(db: AsyncSession, department: Department) -> None:
+    agents = await agents_service.list_active(db, department.company_id)
+    if any(a.department_id == department.id for a in agents):
+        raise AppError("department_not_empty", "Mueve antes a los agentes del departamento", 409)
+    await audit_service.record(db, department.company_id, "owner", "department.deleted", str(department.id), {})
+    await db.delete(department)
 
 
 async def update(db: AsyncSession, company: Company, fields: dict[str, Any]) -> Company:

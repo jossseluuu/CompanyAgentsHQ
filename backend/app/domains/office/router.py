@@ -41,6 +41,10 @@ class FurnitureMove(BaseModel):
     rotation: int = Field(default=0, ge=0, lt=360)
 
 
+class FurniturePlace(FurnitureMove):
+    model_key: str
+
+
 class ModuleIn(BaseModel):
     module_key: str
     config: dict[str, Any] = {}
@@ -79,6 +83,22 @@ async def get_room(room_id: uuid.UUID, company: CompanyDep, db: Db) -> dict[str,
 async def patch_room(room_id: uuid.UUID, body: RoomPatch, company: CompanyDep, db: Db) -> dict[str, Any]:
     room = await service.get_room(db, company.id, room_id)
     return row(await service.update_room(db, room, body.model_dump(exclude_unset=True)))
+
+
+@router.get("/furniture/catalog")
+async def furniture_catalog() -> list[str]:
+    return service.furniture_catalog()
+
+
+@router.post("/rooms/{room_id}/furniture", status_code=201)
+async def place_furniture(room_id: uuid.UUID, body: FurniturePlace, company: CompanyDep, db: Db) -> dict[str, Any]:
+    room = await service.get_room(db, company.id, room_id)
+    return row(await service.place_furniture(db, room, body.model_key, body.grid_x, body.grid_y, body.rotation))
+
+
+@router.delete("/furniture/{furniture_id}", status_code=204)
+async def remove_furniture(furniture_id: uuid.UUID, company: CompanyDep, db: Db) -> None:
+    await service.remove_furniture(db, company.id, furniture_id)
 
 
 @router.patch("/furniture/{furniture_id}")
