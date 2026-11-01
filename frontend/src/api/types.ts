@@ -12,6 +12,7 @@ export type AgentStatus =
   | "paused";
 
 export interface Agent {
+  personality?: string;
   id: string;
   name: string;
   role: string;
@@ -107,6 +108,8 @@ export interface Task {
   error: string;
   rejections: number;
   steps_used: number;
+  recurrence?: string;
+  depends_on?: string[];
   children?: Task[];
 }
 

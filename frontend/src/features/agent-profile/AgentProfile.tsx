@@ -7,17 +7,18 @@ import { STATUS } from "@/office/status";
 import type { Tile } from "@/office/pathAnimator";
 import { Badge, BarChart, Button, Empty, ErrorNote, Field, inputClass, statusLabel, Tabs } from "@/shared/ui";
 import { useOffice } from "@/store/office";
+import { t } from "@/shared/i18n";
 
 const TABS = [
-  ["profile", "Perfil"],
-  ["capabilities", "Capacidades"],
-  ["knowledge", "Conocimiento"],
-  ["work", "Trabajo"],
-  ["performance", "Rendimiento"],
-  ["cost", "Coste"],
-  ["memory", "Memoria"],
-  ["audit", "Auditoría"],
-  ["chat", "Chat"],
+  ["profile", t("Perfil")],
+  ["capabilities", t("Capacidades")],
+  ["knowledge", t("Conocimiento")],
+  ["work", t("Trabajo")],
+  ["performance", t("Rendimiento")],
+  ["cost", t("Coste")],
+  ["memory", t("Memoria")],
+  ["audit", t("Auditoría")],
+  ["chat", t("Chat")],
 ].map(([key, label]) => ({ key, label }));
 
 interface Profile {
@@ -30,6 +31,33 @@ interface Profile {
   cost: { by_day: { day: string; cost_eur: number }[]; by_task: { task_id: string; cost_eur: number; tokens: number }[]; tokens: { input: number; output: number }; today_eur: number; budget_eur: number };
   memory: { id: string; summary: string }[];
   audit: { traces: Trace[]; anomalies: Anomaly[] };
+}
+
+const SITUATIONS: Record<string, string> = { resting: t("Al descansar"), meeting: t("En reunión"), reading: t("Al consultar ficheros") };
+const PLACES: Record<string, string> = { workplace: t("Su puesto"), break: t("Sala de descanso"), boardroom: t("Sala de juntas"), cabinet: t("Archivador") };
+
+function RoutineForm({ agentId }: { agentId: string }) {
+  const { data, refetch } = useQuery({
+    queryKey: ["routine", agentId],
+    queryFn: () => api.get<{ rules: Record<string, string>; defaults: Record<string, string>; targets: string[] }>(`/agents/${agentId}/routine`),
+  });
+  if (!data) return null;
+  const change = async (situation: string, place: string) => {
+    await api.put(`/agents/${agentId}/routine`, { ...data.rules, [situation]: place });
+    await refetch();
+  };
+  return (
+    <fieldset className="space-y-1 rounded border border-ink-line p-2">
+      <legend className="px-1">{t("Rutina")}</legend>
+      {Object.entries(SITUATIONS).map(([situation, label]) => (
+        <Field key={situation} label={label}>
+          <select className={inputClass} value={data.rules[situation] ?? data.defaults[situation]} onChange={(e) => change(situation, e.target.value)}>
+            {data.targets.map((place) => <option key={place} value={place}>{PLACES[place] ?? place}</option>)}
+          </select>
+        </Field>
+      ))}
+    </fieldset>
+  );
 }
 
 function ProfileTab({ data, refresh }: { data: Profile; refresh: () => void }) {
@@ -53,33 +81,37 @@ function ProfileTab({ data, refresh }: { data: Profile; refresh: () => void }) {
   const update = (body: object) => api.patch(`/agents/${agent.id}`, body).then(refresh).catch(setError);
   return (
     <div className="space-y-2 text-sm">
-      <p>Rol: {agent.role}</p>
-      <Field label="Modelo (fast, powerful o proveedor:modelo)">
+      <p>{t("Rol:")} {agent.role}</p>
+      <Field label={t("Modelo (fast, powerful o proveedor:modelo)")}>
         <input className={inputClass} defaultValue={agent.model} onBlur={(e) => update({ model: e.target.value })} />
       </Field>
-      <Field label="Temperatura (solo modelos locales)">
+      <Field label={t("Temperatura (solo modelos locales)")}>
         <input type="number" step="0.1" min="0" max="1" className={inputClass} defaultValue={agent.temperature} onBlur={(e) => update({ temperature: Number(e.target.value) })} />
       </Field>
-      <Field label="Trasladar a la sala">
+      <Field label={t("Trasladar a la sala")}>
         <select className={inputClass} value={agent.home_room_id ?? ""} onChange={(e) => update({ home_room_id: e.target.value })}>
           {rooms.map((room) => <option key={room.id} value={room.id}>{room.name}</option>)}
         </select>
       </Field>
-      <Field label={`Prompt de sistema (versión ${data.profile.prompt.version})`}>
+      <Field label={t("Personalidad y tono")}>
+        <textarea className={inputClass} placeholder={t("Directa y cercana")} defaultValue={agent.personality} onBlur={(e) => update({ personality: e.target.value })} />
+      </Field>
+      <RoutineForm agentId={agent.id} />
+      <Field label={t("Prompt de sistema (versión {0})", data.profile.prompt.version)}>
         <textarea className={`${inputClass} h-48`} value={prompt} onChange={(e) => setPrompt(e.target.value)} />
       </Field>
       <ErrorNote error={error} />
-      <Button tone="primary" onClick={() => savePrompt({ system_prompt: prompt, note: "Editado desde la ficha" })}>Guardar versión</Button>
+      <Button tone="primary" onClick={() => savePrompt({ system_prompt: prompt, note: t("Editado desde la ficha") })}>{t("Guardar versión")}</Button>
       <details>
-        <summary>Historial de versiones</summary>
+        <summary>{t("Historial de versiones")}</summary>
         {versions.data?.map((entry) => (
           <div key={entry.version} className="mt-1 rounded bg-ink-soft p-2">
             <p className="flex items-center justify-between">
               v{entry.version} {entry.note}
-              <Button onClick={() => savePrompt({ restore_version: entry.version })}>Restaurar</Button>
+              <Button onClick={() => savePrompt({ restore_version: entry.version })}>{t("Restaurar")}</Button>
             </p>
             <details>
-              <summary className="text-xs">Comparar con el actual</summary>
+              <summary className="text-xs">{t("Comparar con el actual")}</summary>
               <PromptDiff before={entry.system_prompt} after={prompt} />
             </details>
           </div>
@@ -100,7 +132,7 @@ export function promptDiff(before: string, after: string) {
 
 function PromptDiff({ before, after }: { before: string; after: string }) {
   const lines = promptDiff(before, after);
-  if (!lines.length) return <p className="text-xs">Sin cambios</p>;
+  if (!lines.length) return <p className="text-xs">{t("Sin cambios")}</p>;
   return <pre className="markdown text-xs">{lines.map((l) => `${l.sign} ${l.text}`).join("\n")}</pre>;
 }
 
@@ -126,9 +158,9 @@ function ChatTab({ agentId }: { agentId: string }) {
   return (
     <div className="flex h-full flex-col gap-2 text-sm">
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto" aria-live="polite">
-        {data.length === 0 && <Empty>Escribe al agente</Empty>}
+        {data.length === 0 && <Empty>{t("Escribe al agente")}</Empty>}
         {data.map((message) => (
-          <div key={message.id} className={`rounded p-2 ${message.role === "owner" ? "ml-8 bg-indigo-900" : "mr-8 bg-ink-soft"}`}>
+          <div key={message.id} className={`rounded p-2 ${message.role === "owner" ? "ml-8 bg-indigo-900 text-white" : "mr-8 bg-ink-soft"}`}>
             <p className="markdown">{message.content}</p>
             {message.citations.map((c: Citation) => (
               <p key={c.n} className="mt-1 text-xs text-slate-300">
@@ -143,7 +175,7 @@ function ChatTab({ agentId }: { agentId: string }) {
       <ErrorNote error={error} />
       <div className="flex gap-2">
         <textarea
-          aria-label="Mensaje"
+          aria-label={t("Mensaje")}
           className={inputClass}
           value={text}
           onChange={(e) => setText(e.target.value)}
@@ -154,7 +186,7 @@ function ChatTab({ agentId }: { agentId: string }) {
             }
           }}
         />
-        <Button tone="primary" onClick={send}>Enviar</Button>
+        <Button tone="primary" onClick={send}>{t("Enviar")}</Button>
       </div>
     </div>
   );
@@ -164,7 +196,7 @@ function TaskList({ title, tasks }: { title: string; tasks: Task[] }) {
   return (
     <section>
       <h3 className="font-semibold">{title}</h3>
-      {tasks.length === 0 && <Empty>Nada</Empty>}
+      {tasks.length === 0 && <Empty>{t("Nada")}</Empty>}
       {tasks.map((task) => (
         <p key={task.id} className="flex justify-between gap-2 py-0.5">{task.title} <Badge>{statusLabel(task.status)}</Badge></p>
       ))}
@@ -175,10 +207,10 @@ function TaskList({ title, tasks }: { title: string; tasks: Task[] }) {
 function TraceView({ trace }: { trace: Trace }) {
   return (
     <details className="rounded bg-ink-soft p-2">
-      <summary>{trace.kind} paso {trace.step} · {trace.model} · v{trace.prompt_version} · {trace.input_tokens + trace.output_tokens} tokens · {trace.latency_ms} ms</summary>
+      <summary>{trace.kind} {t("paso")} {trace.step} · {trace.model} · v{trace.prompt_version} · {trace.input_tokens + trace.output_tokens} {t("tokens ·")} {trace.latency_ms} {t("ms")}</summary>
       <p className="markdown mt-1 text-xs">{trace.output}</p>
-      {trace.tool_calls.map((call, index) => <p key={index} className="text-xs text-slate-300">Herramienta: {call.name}</p>)}
-      {trace.rag_chunk_ids.length > 0 && <p className="text-xs text-slate-300">{trace.rag_chunk_ids.length} fragmentos RAG usados</p>}
+      {trace.tool_calls.map((call, index) => <p key={index} className="text-xs text-slate-300">{t("Herramienta:")} {call.name}</p>)}
+      {trace.rag_chunk_ids.length > 0 && <p className="text-xs text-slate-300">{trace.rag_chunk_ids.length} {t("fragmentos RAG usados")}</p>}
     </details>
   );
 }
@@ -198,7 +230,7 @@ export function AgentProfile({ agentId }: { agentId: string }) {
     refresh();
   };
   const fire = async () => {
-    if (!window.confirm(`¿Despedir a ${live?.name}? Su historial se conserva.`)) return;
+    if (!window.confirm(t("¿Despedir a {0}? Su historial se conserva.", live?.name))) return;
     await api.del(`/agents/${agentId}`);
     openAgent(null);
     refresh();
@@ -210,20 +242,20 @@ export function AgentProfile({ agentId }: { agentId: string }) {
   };
   const status = live ? STATUS[live.status] : null;
   return (
-    <aside aria-label="Ficha del agente" className="flex w-[30rem] max-w-[45vw] shrink-0 flex-col border-l border-ink-line bg-ink">
+    <aside aria-label={t("Ficha del agente")} className="flex w-[30rem] max-w-[45vw] shrink-0 flex-col border-l border-ink-line bg-ink">
       <header className="space-y-1 p-2">
         <div className="flex items-center justify-between">
           <h2 className="font-semibold">{live?.name}</h2>
-          <Button aria-label="Cerrar ficha" onClick={() => openAgent(null)}>✕</Button>
+          <Button aria-label={t("Cerrar ficha")} onClick={() => openAgent(null)}>✕</Button>
         </div>
         {status && <p className="text-sm"><span aria-hidden>{status.icon}</span> {status.label} {live?.pause_reason && `· ${live.pause_reason}`}</p>}
         <div className="flex flex-wrap gap-1">
-          {live?.status === "paused" ? <Button onClick={() => act("resume")}>Reanudar</Button> : <Button onClick={() => act("pause")}>Pausar</Button>}
-          <Button onClick={() => act("reset")}>Reiniciar</Button>
-          <Button onClick={() => follow(agentId)}>Seguir</Button>
-          <Button onClick={showPath}>Repetir recorrido</Button>
-          <Button onClick={() => act("clone")}>Clonar</Button>
-          <Button tone="danger" onClick={fire}>Despedir</Button>
+          {live?.status === "paused" ? <Button onClick={() => act("resume")}>{t("Reanudar")}</Button> : <Button onClick={() => act("pause")}>{t("Pausar")}</Button>}
+          <Button onClick={() => act("reset")}>{t("Reiniciar")}</Button>
+          <Button onClick={() => follow(agentId)}>{t("Seguir")}</Button>
+          <Button onClick={showPath}>{t("Repetir recorrido")}</Button>
+          <Button onClick={() => act("clone")}>{t("Clonar")}</Button>
+          <Button tone="danger" onClick={fire}>{t("Despedir")}</Button>
         </div>
       </header>
       <Tabs tabs={TABS} active={tab} onChange={(key) => openAgent(agentId, key)} />
@@ -232,8 +264,8 @@ export function AgentProfile({ agentId }: { agentId: string }) {
         {data && tab === "profile" && <ProfileTab key={data.profile.prompt.version} data={data} refresh={refresh} />}
         {data && tab === "capabilities" && (
           <div className="space-y-2 text-sm">
-            <h3 className="font-semibold">Herramientas</h3>
-            {data.agent.tools.length === 0 && <Empty>Ninguna</Empty>}
+            <h3 className="font-semibold">{t("Herramientas")}</h3>
+            {data.agent.tools.length === 0 && <Empty>{t("Ninguna")}</Empty>}
             {data.capabilities.tools.map((tool) => (
               <label key={tool} className="flex items-center gap-2">
                 <input
@@ -244,11 +276,11 @@ export function AgentProfile({ agentId }: { agentId: string }) {
                     refresh();
                   }}
                 />
-                {tool} {!data.capabilities.usable_now.includes(tool) && <Badge>sin módulo en su sala</Badge>}
+                {tool} {!data.capabilities.usable_now.includes(tool) && <Badge>{t("sin módulo en su sala")}</Badge>}
               </label>
             ))}
-            <p>Presupuesto diario: {data.cost.budget_eur.toFixed(2)} €</p>
-            <h3 className="font-semibold">Supervisión</h3>
+            <p>{t("Presupuesto diario:")} {data.cost.budget_eur.toFixed(2)} €</p>
+            <h3 className="font-semibold">{t("Supervisión")}</h3>
             {data.capabilities.supervised_by.map((s, index) => <p key={index}>{s.kind}: {useOffice.getState().agents[s.supervisor_id]?.name}</p>)}
           </div>
         )}
@@ -263,49 +295,49 @@ export function AgentProfile({ agentId }: { agentId: string }) {
         )}
         {data && tab === "work" && (
           <div className="space-y-3 text-sm">
-            <TaskList title="Tarea actual" tasks={data.work.current ? [data.work.current] : []} />
-            <TaskList title="Cola" tasks={data.work.queue} />
-            <TaskList title="Terminadas" tasks={data.work.finished} />
+            <TaskList title={t("Tarea actual")} tasks={data.work.current ? [data.work.current] : []} />
+            <TaskList title={t("Cola")} tasks={data.work.queue} />
+            <TaskList title={t("Terminadas")} tasks={data.work.finished} />
           </div>
         )}
         {data && tab === "performance" && (
           <dl className="grid grid-cols-2 gap-2 text-sm">
-            <dt>Tareas completadas</dt><dd>{data.performance.completed}</dd>
-            <dt>Fallidas</dt><dd>{data.performance.failed}</dd>
-            <dt>Aceptadas a la primera</dt><dd>{data.performance.accepted_first_pct ?? "—"} %</dd>
-            <dt>Tiempo medio</dt><dd>{data.performance.avg_seconds ?? "—"} s</dd>
-            <dt>Pasos medios</dt><dd>{data.performance.avg_steps ?? "—"}</dd>
+            <dt>{t("Tareas completadas")}</dt><dd>{data.performance.completed}</dd>
+            <dt>{t("Fallidas")}</dt><dd>{data.performance.failed}</dd>
+            <dt>{t("Aceptadas a la primera")}</dt><dd>{data.performance.accepted_first_pct ?? "—"} %</dd>
+            <dt>{t("Tiempo medio")}</dt><dd>{data.performance.avg_seconds ?? "—"} s</dd>
+            <dt>{t("Pasos medios")}</dt><dd>{data.performance.avg_steps ?? "—"}</dd>
           </dl>
         )}
         {data && tab === "cost" && (
           <div className="space-y-3 text-sm">
-            <p>Hoy: {data.cost.today_eur.toFixed(4)} € de {data.cost.budget_eur.toFixed(2)} € · {data.cost.tokens.input + data.cost.tokens.output} tokens</p>
-            <BarChart title="Gasto por día" rows={data.cost.by_day.map((d) => ({ label: d.day, value: d.cost_eur }))} />
-            <BarChart title="Gasto por tarea" rows={data.cost.by_task.map((t) => ({ label: t.task_id.slice(0, 8), value: t.cost_eur }))} />
+            <p>{t("Hoy:")} {data.cost.today_eur.toFixed(4)} {t("€ de")} {data.cost.budget_eur.toFixed(2)} € · {data.cost.tokens.input + data.cost.tokens.output} {t("tokens")}</p>
+            <BarChart title={t("Gasto por día")} rows={data.cost.by_day.map((d) => ({ label: d.day, value: d.cost_eur }))} />
+            <BarChart title={t("Gasto por tarea")} rows={data.cost.by_task.map((t) => ({ label: t.task_id.slice(0, 8), value: t.cost_eur }))} />
           </div>
         )}
         {data && tab === "memory" && (
           <ul className="space-y-1 text-sm">
-            {data.memory.length === 0 && <Empty>Sin recuerdos</Empty>}
+            {data.memory.length === 0 && <Empty>{t("Sin recuerdos")}</Empty>}
             {data.memory.map((entry) => (
               <li key={entry.id} className="space-y-1 rounded bg-ink-soft p-2">
                 <textarea
-                  aria-label="Recuerdo"
+                  aria-label={t("Recuerdo")}
                   className={inputClass}
                   defaultValue={entry.summary}
                   onBlur={(e) => api.patch(`/agents/${agentId}/memories/${entry.id}`, { summary: e.target.value })}
                 />
-                <Button onClick={async () => { await api.del(`/agents/${agentId}/memories/${entry.id}`); refresh(); }}>Borrar</Button>
+                <Button onClick={async () => { await api.del(`/agents/${agentId}/memories/${entry.id}`); refresh(); }}>{t("Borrar")}</Button>
               </li>
             ))}
           </ul>
         )}
         {data && tab === "audit" && (
           <div className="space-y-2 text-sm">
-            <h3 className="font-semibold">Anomalías</h3>
-            {data.audit.anomalies.length === 0 && <Empty>Ninguna</Empty>}
+            <h3 className="font-semibold">{t("Anomalías")}</h3>
+            {data.audit.anomalies.length === 0 && <Empty>{t("Ninguna")}</Empty>}
             {data.audit.anomalies.map((item) => <p key={item.id}>🛡 {item.rule} · {item.severity} · {item.status}</p>)}
-            <h3 className="font-semibold">Trazas</h3>
+            <h3 className="font-semibold">{t("Trazas")}</h3>
             {data.audit.traces.map((trace) => <TraceView key={trace.id} trace={trace} />)}
           </div>
         )}

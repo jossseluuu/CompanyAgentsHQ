@@ -2,6 +2,40 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --ink: 15 23 42;
+  --ink-soft: 30 41 59;
+  --ink-line: 51 65 85;
+  --slate-50: 248 250 252;
+  --slate-100: 241 245 249;
+  --slate-200: 226 232 240;
+  --slate-300: 203 213 225;
+  --slate-400: 148 163 184;
+  --slate-500: 100 116 139;
+  --slate-600: 71 85 105;
+  --slate-700: 51 65 85;
+  --slate-800: 30 41 59;
+  --slate-900: 15 23 42;
+  --slate-950: 2 6 23;
+}
+
+.light {
+  --ink: 248 250 252;
+  --ink-soft: 241 245 249;
+  --ink-line: 203 213 225;
+  --slate-50: 15 23 42;
+  --slate-100: 15 23 42;
+  --slate-200: 30 41 59;
+  --slate-300: 51 65 85;
+  --slate-400: 71 85 105;
+  --slate-500: 100 116 139;
+  --slate-600: 148 163 184;
+  --slate-700: 203 213 225;
+  --slate-800: 226 232 240;
+  --slate-900: 241 245 249;
+  --slate-950: 255 255 255;
+}
+
 html,
 body,
 #root {
@@ -9,13 +43,13 @@ body,
 }
 
 body {
-  background: #0f172a;
-  color: #e2e8f0;
+  background: rgb(var(--ink));
+  color: rgb(var(--slate-200));
   font-family: "Segoe UI", system-ui, sans-serif;
 }
 
 :focus-visible {
-  outline: 2px solid #a5b4fc;
+  outline: 2px solid #6366f1;
   outline-offset: 2px;
 }
 

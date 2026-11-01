@@ -6,6 +6,7 @@ import type { Room } from "@/api/types";
 import { MODULE_PANELS } from "@/modules/registry";
 import { Button, Empty, ErrorNote, Tabs } from "@/shared/ui";
 import { useOffice } from "@/store/office";
+import { t } from "@/shared/i18n";
 
 interface CatalogEntry {
   key: string;
@@ -40,21 +41,21 @@ function ModuleManager({ room }: { room: Room }) {
               <span className="block text-xs text-slate-300">{entry.description}</span>
             </span>
             {installed.has(entry.key) ? (
-              <Button onClick={() => run(() => api.del(`/rooms/${room.id}/modules/${entry.key}`))}>Quitar</Button>
+              <Button onClick={() => run(() => api.del(`/rooms/${room.id}/modules/${entry.key}`))}>{t("Quitar")}</Button>
             ) : (
-              <Button onClick={() => run(() => api.post(`/rooms/${room.id}/modules`, { module_key: entry.key }))}>Instalar</Button>
+              <Button onClick={() => run(() => api.post(`/rooms/${room.id}/modules`, { module_key: entry.key }))}>{t("Instalar")}</Button>
             )}
           </li>
         ))}
       </ul>
       <section>
-        <h3 className="font-semibold">Acceso a la sala</h3>
+        <h3 className="font-semibold">{t("Acceso a la sala")}</h3>
         {Object.values(agents).map((agent) => (
           <div key={agent.id} className="flex items-center justify-between py-0.5">
             {agent.name}
             <span className="flex gap-1">
-              <Button onClick={() => run(() => api.put(`/rooms/${room.id}/access`, { agent_id: agent.id, can_enter: true, can_use_tools: true }))}>Permitir</Button>
-              <Button onClick={() => run(() => api.put(`/rooms/${room.id}/access`, { agent_id: agent.id, can_enter: false, can_use_tools: false }))}>Denegar</Button>
+              <Button onClick={() => run(() => api.put(`/rooms/${room.id}/access`, { agent_id: agent.id, can_enter: true, can_use_tools: true }))}>{t("Permitir")}</Button>
+              <Button onClick={() => run(() => api.put(`/rooms/${room.id}/access`, { agent_id: agent.id, can_enter: false, can_use_tools: false }))}>{t("Denegar")}</Button>
             </span>
           </div>
         ))}
@@ -75,10 +76,10 @@ export function RoomPanel({ roomId }: { roomId: string }) {
   const Panel = MODULE_PANELS[active];
   const module = room.modules.find((m) => m.module_key === active);
   return (
-    <aside aria-label={`Sala ${room.name}`} className="flex w-[30rem] max-w-[45vw] shrink-0 flex-col border-l border-ink-line bg-ink">
+    <aside aria-label={t("Sala {0}", room.name)} className="flex w-[30rem] max-w-[45vw] shrink-0 flex-col border-l border-ink-line bg-ink">
       <header className="flex items-center justify-between p-2">
         <h2 className="font-semibold">{room.name}</h2>
-        <Button aria-label="Cerrar sala" onClick={() => openRoom(null)}>✕</Button>
+        <Button aria-label={t("Cerrar sala")} onClick={() => openRoom(null)}>✕</Button>
       </header>
       <Tabs
         tabs={[...room.modules.map((m) => ({ key: m.module_key, label: m.name })), { key: MANAGE, label: "⚙ Módulos" }]}
@@ -87,7 +88,7 @@ export function RoomPanel({ roomId }: { roomId: string }) {
       />
       <div className="min-h-0 flex-1 overflow-y-auto p-2">
         {active === MANAGE && <ModuleManager room={room} />}
-        {active !== MANAGE && (Panel && module ? <Panel room={room} module={module} /> : <Empty>Este módulo no tiene panel</Empty>)}
+        {active !== MANAGE && (Panel && module ? <Panel room={room} module={module} /> : <Empty>{t("Este módulo no tiene panel")}</Empty>)}
       </div>
     </aside>
   );

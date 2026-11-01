@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 
 import { api } from "@/api/client";
 import { Button, Empty } from "@/shared/ui";
+import { t } from "@/shared/i18n";
 
 interface Item {
   id: string;
@@ -26,10 +27,10 @@ export function NotificationsButton() {
   };
   return (
     <div className="relative">
-      <Button onClick={toggle} aria-expanded={open}>Avisos: {unread}</Button>
+      <Button onClick={toggle} aria-expanded={open}>{t("Avisos:")} {unread}</Button>
       {open && (
         <div className="absolute right-0 z-40 mt-1 max-h-80 w-72 overflow-y-auto rounded border border-ink-line bg-ink-soft p-2 text-sm shadow-lg">
-          {data.length === 0 && <Empty>Sin avisos</Empty>}
+          {data.length === 0 && <Empty>{t("Sin avisos")}</Empty>}
           {data.map((item) => (
             <Link key={item.id} to={item.link.startsWith("/tasks") ? "/" : item.link || "/"} className="block rounded p-1 hover:bg-ink-line" onClick={() => setOpen(false)}>
               {item.title}

@@ -1,5 +1,6 @@
 import { create } from "zustand";
 
+import { api } from "@/api/client";
 import type { Agent, AgentStatus, Snapshot } from "@/api/types";
 import { type Tile, type Walk } from "@/office/pathAnimator";
 
@@ -24,6 +25,14 @@ interface OfficeState {
   followAgentId: string | null;
   highlightDepartment: string | null;
   problemsOnly: boolean;
+  editing: boolean;
+  editRoomId: string | null;
+  editFurnitureId: string | null;
+  editError: unknown;
+  setEditing: (editing: boolean) => void;
+  editSelect: (roomId: string | null) => void;
+  editPick: (furnitureId: string | null) => void;
+  placeFurniture: (x: number, y: number) => Promise<void>;
   setSnapshot: (snapshot: Snapshot) => void;
   setConnected: (connected: boolean) => void;
   applyEvent: (type: string, data: any, ts: number) => void;
@@ -53,6 +62,25 @@ export const useOffice = create<OfficeState>((set, get) => ({
   followAgentId: null,
   highlightDepartment: null,
   problemsOnly: false,
+  editing: false,
+  editRoomId: null,
+  editFurnitureId: null,
+  editError: null,
+  setEditing: (editing) =>
+    set({ editing, editRoomId: null, editFurnitureId: null, editError: null, selectedRoomId: null, profileAgentId: null }),
+  editSelect: (roomId) => set({ editRoomId: roomId, editFurnitureId: null, editError: null }),
+  editPick: (furnitureId) => set({ editFurnitureId: furnitureId, editError: null }),
+  placeFurniture: async (x, y) => {
+    const { editFurnitureId, snapshot } = get();
+    const item = snapshot?.office.rooms.flatMap((r) => r.furniture).find((f) => f.id === editFurnitureId);
+    if (!item) return;
+    try {
+      await api.patch(`/furniture/${item.id}`, { grid_x: x, grid_y: y, rotation: item.rotation });
+      set({ editError: null });
+    } catch (failure) {
+      set({ editError: failure });
+    }
+  },
   setSnapshot: (snapshot) =>
     set({
       snapshot,

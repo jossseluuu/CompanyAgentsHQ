@@ -3,6 +3,7 @@ import { type FormEvent, useState } from "react";
 
 import { api, setCsrf } from "@/api/client";
 import { Button, ErrorNote, Field, inputClass } from "@/shared/ui";
+import { t } from "@/shared/i18n";
 
 export function LoginPage({ setup }: { setup: boolean }) {
   const queryClient = useQueryClient();
@@ -24,21 +25,21 @@ export function LoginPage({ setup }: { setup: boolean }) {
   };
   return (
     <form onSubmit={submit} className="mx-auto mt-24 max-w-sm space-y-3 rounded-lg bg-ink-soft p-6">
-      <h1 className="text-xl font-semibold">{setup ? "Crea tu cuenta de dueño" : "Entrar en CompanyAgentsHQ"}</h1>
+      <h1 className="text-xl font-semibold">{setup ? t("Crea tu cuenta de dueño") : t("Entrar en CompanyAgentsHQ")}</h1>
       {setup && (
-        <Field label="Nombre">
+        <Field label={t("Nombre")}>
           <input required className={inputClass} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
         </Field>
       )}
-      <Field label="Correo">
+      <Field label={t("Correo")}>
         <input required type="email" className={inputClass} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
       </Field>
-      <Field label="Contraseña (mínimo 8)">
+      <Field label={t("Contraseña (mínimo 8)")}>
         <input required minLength={8} type="password" className={inputClass} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
       </Field>
       <ErrorNote error={error} />
       <Button type="submit" tone="primary" className="w-full">
-        {setup ? "Crear cuenta" : "Entrar"}
+        {setup ? t("Crear cuenta") : t("Entrar")}
       </Button>
     </form>
   );
@@ -48,6 +49,16 @@ export function OnboardingPage() {
   const queryClient = useQueryClient();
   const [form, setForm] = useState({ name: "", mission: "", sector: "", template: "default" });
   const [error, setError] = useState<unknown>(null);
+  const restore = async (file: File | undefined) => {
+    if (!file) return;
+    setError(null);
+    try {
+      await api.upload("/company/import", file);
+      await queryClient.invalidateQueries();
+    } catch (failure) {
+      setError(failure);
+    }
+  };
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     try {
@@ -59,26 +70,30 @@ export function OnboardingPage() {
   };
   return (
     <form onSubmit={submit} className="mx-auto mt-24 max-w-md space-y-3 rounded-lg bg-ink-soft p-6">
-      <h1 className="text-xl font-semibold">Monta tu empresa</h1>
-      <Field label="Nombre de la empresa">
+      <h1 className="text-xl font-semibold">{t("Monta tu empresa")}</h1>
+      <Field label={t("Nombre de la empresa")}>
         <input required className={inputClass} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
       </Field>
-      <Field label="Misión">
+      <Field label={t("Misión")}>
         <textarea className={inputClass} value={form.mission} onChange={(e) => setForm({ ...form, mission: e.target.value })} />
       </Field>
-      <Field label="Sector">
+      <Field label={t("Sector")}>
         <input className={inputClass} value={form.sector} onChange={(e) => setForm({ ...form, sector: e.target.value })} />
       </Field>
-      <Field label="Plantilla">
+      <Field label={t("Plantilla")}>
         <select className={inputClass} value={form.template} onChange={(e) => setForm({ ...form, template: e.target.value })}>
-          <option value="default">8 salas y 8 agentes</option>
-          <option value="">Empresa vacía</option>
+          <option value="default">{t("8 salas y 8 agentes")}</option>
+          <option value="">{t("Empresa vacía")}</option>
         </select>
       </Field>
       <ErrorNote error={error} />
       <Button type="submit" tone="primary" className="w-full">
-        Crear empresa
+        {t("Crear empresa")}
       </Button>
+          <label className="block cursor-pointer text-center text-sm underline">
+        {t("Importar una empresa desde un ZIP")}
+        <input type="file" accept=".zip" className="sr-only" onChange={(e) => restore(e.target.files?.[0])} />
+      </label>
     </form>
   );
 }

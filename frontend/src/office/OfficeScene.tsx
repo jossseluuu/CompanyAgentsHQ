@@ -9,6 +9,7 @@ import { AgentAvatar } from "./AgentAvatar";
 import { poseAt } from "./pathAnimator";
 import { grassTexture } from "./pixelTextures";
 import { RoomMesh } from "./RoomMesh";
+import { t } from "@/shared/i18n";
 
 const ZOOMS = [14, 22, 34];
 const DISTANCE = 60;
@@ -148,12 +149,12 @@ export function OfficeScene({ picker }: { picker: MutableRefObject<ScreenToGrid 
         <CameraRig view={view} picker={picker} />
       </Canvas>
       <div className="absolute bottom-3 left-3 flex gap-1" onPointerDown={(e) => e.stopPropagation()}>
-        <SceneButton label="Girar a la izquierda" onClick={() => (view.current.turns -= 1)}>⟲</SceneButton>
-        <SceneButton label="Girar a la derecha" onClick={() => (view.current.turns += 1)}>⟳</SceneButton>
-        <SceneButton label="Acercar" onClick={() => (view.current.zoomLevel = Math.min(view.current.zoomLevel + 1, 2))}>＋</SceneButton>
-        <SceneButton label="Alejar" onClick={() => (view.current.zoomLevel = Math.max(view.current.zoomLevel - 1, 0))}>－</SceneButton>
+        <SceneButton label={t("Girar a la izquierda")} onClick={() => (view.current.turns -= 1)}>⟲</SceneButton>
+        <SceneButton label={t("Girar a la derecha")} onClick={() => (view.current.turns += 1)}>⟳</SceneButton>
+        <SceneButton label={t("Acercar")} onClick={() => (view.current.zoomLevel = Math.min(view.current.zoomLevel + 1, 2))}>＋</SceneButton>
+        <SceneButton label={t("Alejar")} onClick={() => (view.current.zoomLevel = Math.max(view.current.zoomLevel - 1, 0))}>－</SceneButton>
         <SceneButton
-          label="Centrar"
+          label={t("Centrar")}
           onClick={() => {
             view.current.target.copy(center);
             useOffice.getState().follow(null);
@@ -174,7 +175,7 @@ function SceneButton({ label, onClick, children }: { label: string; onClick: () 
       aria-label={label}
       title={label}
       onClick={onClick}
-      className="h-8 w-8 rounded bg-slate-800 text-lg text-white hover:bg-slate-700"
+      className="h-8 w-8 rounded bg-slate-800 text-lg text-slate-50 hover:bg-slate-700"
     >
       {children}
     </button>

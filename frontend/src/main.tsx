@@ -4,11 +4,14 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 
 import { App } from "@/app/App";
+import { applyTheme, currentTheme } from "@/shared/theme";
 import "./index.css";
 
 export const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 5000, refetchOnWindowFocus: false } },
 });
+
+applyTheme(currentTheme());
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

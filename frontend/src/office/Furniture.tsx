@@ -56,7 +56,7 @@ const MODELS: Record<string, Part[]> = {
   ],
 };
 
-export function Furniture({ item, onSelect }: { item: FurnitureItem; onSelect?: () => void }) {
+export function Furniture({ item, onSelect, picked = false }: { item: FurnitureItem; onSelect?: () => void; picked?: boolean }) {
   const parts = MODELS[item.model_key] ?? MODELS.board;
   return (
     <group
@@ -78,7 +78,7 @@ export function Furniture({ item, onSelect }: { item: FurnitureItem; onSelect?: 
       {parts.map(([w, h, d, y, color, x = 0, z = 0], index) => (
         <mesh key={index} position={[x, y, z]} castShadow>
           <boxGeometry args={[w, h, d]} />
-          <meshStandardMaterial color={color} map={speckleTexture()} />
+          <meshStandardMaterial color={color} map={speckleTexture()} emissive={picked ? "#6366f1" : "#000000"} emissiveIntensity={picked ? 0.8 : 0} />
         </mesh>
       ))}
     </group>

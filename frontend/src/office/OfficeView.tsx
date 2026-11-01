@@ -5,12 +5,14 @@ import { api } from "@/api/client";
 import type { KnowledgeBase } from "@/api/types";
 import { AgentProfile } from "@/features/agent-profile/AgentProfile";
 import { RoomPanel } from "@/features/room/RoomPanel";
-import { ErrorNote, inputClass } from "@/shared/ui";
+import { Button, ErrorNote, inputClass } from "@/shared/ui";
 import { useOffice } from "@/store/office";
 
 import { FlatMap, hasWebGL } from "./FlatMap";
+import { OfficeEditor } from "./OfficeEditor";
 import { OfficeScene, type ScreenToGrid } from "./OfficeScene";
 import { STATUS } from "./status";
+import { t } from "@/shared/i18n";
 
 export function OfficeView() {
   const snapshot = useOffice((s) => s.snapshot);
@@ -20,6 +22,7 @@ export function OfficeView() {
   const { openRoom, openAgent, setHighlight, setProblemsOnly } = useOffice.getState();
   const highlight = useOffice((s) => s.highlightDepartment);
   const problems = useOffice((s) => s.problemsOnly);
+  const editing = useOffice((s) => s.editing);
   const picker = useRef<ScreenToGrid | null>(null);
   const [dropError, setDropError] = useState<unknown>(null);
   const queryClient = useQueryClient();
@@ -57,9 +60,9 @@ export function OfficeView() {
 
   return (
     <div className="flex h-full min-h-0">
-      <nav aria-label="Salas y agentes" className="w-56 shrink-0 space-y-3 overflow-y-auto border-r border-ink-line p-2 text-sm">
+      <nav aria-label={t("Salas y agentes")} className="w-56 shrink-0 space-y-3 overflow-y-auto border-r border-ink-line p-2 text-sm">
         <section>
-          <h2 className="mb-1 font-semibold text-slate-200">Salas</h2>
+          <h2 className="mb-1 font-semibold text-slate-200">{t("Salas")}</h2>
           <ul>
             {snapshot.office.rooms.map((room) => (
               <li key={room.id}>
@@ -69,9 +72,12 @@ export function OfficeView() {
               </li>
             ))}
           </ul>
+          <Button className="mt-1 w-full" aria-pressed={editing} onClick={() => useOffice.getState().setEditing(!editing)}>
+            {t("✎ Editar oficina")}
+          </Button>
         </section>
         <section>
-          <h2 className="mb-1 font-semibold text-slate-200">Agentes</h2>
+          <h2 className="mb-1 font-semibold text-slate-200">{t("Agentes")}</h2>
           <ul>
             {Object.values(agents).map((agent) => (
               <li key={agent.id}>
@@ -86,14 +92,14 @@ export function OfficeView() {
           </ul>
         </section>
         <section className="space-y-1">
-          <h2 className="font-semibold text-slate-200">Vista</h2>
+          <h2 className="font-semibold text-slate-200">{t("Vista")}</h2>
           <select
-            aria-label="Resaltar departamento"
+            aria-label={t("Resaltar departamento")}
             className={inputClass}
             value={highlight ?? ""}
             onChange={(e) => setHighlight(e.target.value || null)}
           >
-            <option value="">Todos los departamentos</option>
+            <option value="">{t("Todos los departamentos")}</option>
             {snapshot.departments.map((d) => (
               <option key={d.id} value={d.id}>
                 {d.name}
@@ -102,7 +108,7 @@ export function OfficeView() {
           </select>
           <label className="flex items-center gap-1 text-slate-300">
             <input type="checkbox" checked={problems} onChange={(e) => setProblemsOnly(e.target.checked)} />
-            Solo con problemas
+            {t("Solo con problemas")}
           </label>
         </section>
       </nav>
@@ -123,8 +129,9 @@ export function OfficeView() {
           </div>
         ) : null}
       </div>
-      {roomId && <RoomPanel roomId={roomId} />}
-      {agentId && <AgentProfile agentId={agentId} />}
+      {editing && <OfficeEditor />}
+      {!editing && roomId && <RoomPanel roomId={roomId} />}
+      {!editing && agentId && <AgentProfile agentId={agentId} />}
     </div>
   );
 }

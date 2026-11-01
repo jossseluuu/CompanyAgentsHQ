@@ -1,4 +1,5 @@
 import { type ButtonHTMLAttributes, type ReactNode, useState } from "react";
+import { t } from "@/shared/i18n";
 
 export function Button({
   tone = "default",
@@ -49,7 +50,7 @@ export function Tabs({
           aria-selected={tab.key === active}
           onClick={() => onChange(tab.key)}
           className={`rounded-t px-2 py-1 text-sm ${
-            tab.key === active ? "bg-ink-line text-white" : "text-slate-300 hover:bg-ink-soft"
+            tab.key === active ? "bg-ink-line text-slate-50" : "text-slate-300 hover:bg-ink-soft"
           }`}
         >
           {tab.label}
@@ -67,23 +68,23 @@ export function ErrorNote({ error }: { error: unknown }) {
   if (!error) return null;
   return (
     <p role="alert" className="rounded bg-red-950 p-2 text-sm text-red-100">
-      {error instanceof Error ? error.message : String(error)}
+      {t(error instanceof Error ? error.message : String(error))}
     </p>
   );
 }
 
 const TASK_STATUS: Record<string, string> = {
-  pending: "Pendiente",
-  in_progress: "En curso",
-  in_review: "En revisión",
-  blocked: "Bloqueada",
-  done: "Hecha",
-  failed: "Fallida",
-  cancelled: "Cancelada",
-  planning: "Planificando",
-  plan_review: "Plan por revisar",
-  running: "En marcha",
-  rejected: "Rechazado",
+  pending: t("Pendiente"),
+  in_progress: t("En curso"),
+  in_review: t("En revisión"),
+  blocked: t("Bloqueada"),
+  done: t("Hecha"),
+  failed: t("Fallida"),
+  cancelled: t("Cancelada"),
+  planning: t("Planificando"),
+  plan_review: t("Plan por revisar"),
+  running: t("En marcha"),
+  rejected: t("Rechazado"),
 };
 
 export const statusLabel = (status: string) => TASK_STATUS[status] ?? status;
@@ -104,7 +105,7 @@ export function BarChart({
 }) {
   const [hover, setHover] = useState<number | null>(null);
   const max = Math.max(...rows.map((r) => r.value), 0.000001);
-  if (!rows.length) return <Empty>{title}: sin datos todavía</Empty>;
+  if (!rows.length) return <Empty>{title}{t(": sin datos todavía")}</Empty>;
   const shown = hover === null ? rows[rows.length - 1] : rows[hover];
   return (
     <figure>
@@ -130,7 +131,7 @@ export function BarChart({
         ))}
       </div>
       <details className="mt-1 text-xs text-slate-300">
-        <summary>Ver tabla</summary>
+        <summary>{t("Ver tabla")}</summary>
         <table className="w-full">
           <tbody>
             {rows.map((row) => (

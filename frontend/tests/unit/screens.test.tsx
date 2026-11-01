@@ -42,6 +42,7 @@ const profile = {
 
 function respond(url: string): unknown {
   if (url.includes("/role-catalog")) return { groups: [] };
+  if (url.includes("/routine")) return { rules: {}, defaults: { resting: "break", meeting: "boardroom", reading: "cabinet" }, targets: ["break", "boardroom", "cabinet", "workplace"] };
   if (url.includes("/profile")) return profile;
   if (url.includes("/prompt-versions")) return [{ version: 1, note: "n", system_prompt: "Otro" }];
   if (url.includes("/messages")) return [{ id: "1", role: "agent", content: "Hola", citations: [{ n: 1, document: "doc.md", page: 2 }] }];

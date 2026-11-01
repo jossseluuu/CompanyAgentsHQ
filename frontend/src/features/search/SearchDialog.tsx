@@ -4,6 +4,7 @@ import { api, fileUrl } from "@/api/client";
 import type { Agent, Citation, FileRow, Task } from "@/api/types";
 import { Button, Empty, ErrorNote, inputClass } from "@/shared/ui";
 import { useOffice } from "@/store/office";
+import { t } from "@/shared/i18n";
 
 interface Results {
   files: (FileRow & { snippet: string })[];
@@ -28,19 +29,19 @@ export function SearchDialog({ onClose }: { onClose: () => void }) {
   };
   const empty = results && !results.files.length && !results.tasks.length && !results.agents.length && !results.knowledge.length;
   return (
-    <div role="dialog" aria-label="Buscador global" className="fixed inset-0 z-50 flex justify-center bg-black/60 p-10" onClick={onClose} onKeyDown={(e) => e.key === "Escape" && onClose()}>
+    <div role="dialog" aria-label={t("Buscador global")} className="fixed inset-0 z-50 flex justify-center bg-black/60 p-10" onClick={onClose} onKeyDown={(e) => e.key === "Escape" && onClose()}>
       <div className="max-h-full w-full max-w-2xl overflow-y-auto rounded-lg bg-ink-soft p-4" onClick={(e) => e.stopPropagation()}>
         <form onSubmit={submit} className="flex gap-2">
-          <input ref={input} aria-label="Buscar" className={inputClass} placeholder="Ficheros, tareas, agentes, conocimiento…" value={query} onChange={(e) => setQuery(e.target.value)} />
-          <Button type="submit" tone="primary">Buscar</Button>
+          <input ref={input} aria-label={t("Buscar")} className={inputClass} placeholder={t("Ficheros, tareas, agentes, conocimiento…")} value={query} onChange={(e) => setQuery(e.target.value)} />
+          <Button type="submit" tone="primary">{t("Buscar")}</Button>
         </form>
         <ErrorNote error={error} />
-        {empty && <Empty>Sin resultados</Empty>}
+        {empty && <Empty>{t("Sin resultados")}</Empty>}
         {results && (
           <div className="mt-3 space-y-3 text-sm">
             {results.agents.map((agent) => (
               <button key={agent.id} className="block underline" onClick={() => { useOffice.getState().openAgent(agent.id); onClose(); }}>
-                Agente: {agent.name} ({agent.role})
+                {t("Agente:")} {agent.name} ({agent.role})
               </button>
             ))}
             {results.files.map((file) => (
@@ -50,7 +51,7 @@ export function SearchDialog({ onClose }: { onClose: () => void }) {
               </a>
             ))}
             {results.tasks.map((task) => (
-              <p key={task.id}>Tarea: {task.title}</p>
+              <p key={task.id}>{t("Tarea:")} {task.title}</p>
             ))}
             {results.knowledge.map((item) => (
               <p key={item.n}>

@@ -104,7 +104,7 @@ export function AgentAvatar({ agent, color }: { agent: Agent; color: string }) {
       <Html position={[0, 1.65, 0]} center zIndexRange={[15, 0]} style={{ pointerEvents: "none" }}>
         <div className="flex flex-col items-center gap-0.5" style={{ opacity: dimmed ? 0.3 : 1 }}>
           {bubble && (
-            <div className="w-44 rounded bg-white px-1.5 py-0.5 text-center text-xs text-slate-900 shadow">{bubble.text}</div>
+            <div className="w-44 rounded bg-white px-1.5 py-0.5 text-center text-xs text-black shadow">{bubble.text}</div>
           )}
           <div className={`whitespace-nowrap rounded px-1 text-[11px] leading-4 ${info.tone}`} title={info.label}>
             <span aria-hidden>{info.icon}</span> {agent.name}

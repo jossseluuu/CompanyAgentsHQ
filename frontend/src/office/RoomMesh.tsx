@@ -22,7 +22,9 @@ function wallSegments(room: Room) {
 export function RoomMesh({ room, dimmed }: { room: Room; dimmed: boolean }) {
   const [hovered, setHovered] = useState(false);
   const openRoom = useOffice((s) => s.openRoom);
-  const selected = useOffice((s) => s.selectedRoomId === room.id);
+  const selected = useOffice((s) => s.selectedRoomId === room.id || s.editRoomId === room.id);
+  const editing = useOffice((s) => s.editing);
+  const pickedFurniture = useOffice((s) => s.editFurnitureId);
   const walls = useMemo(() => wallSegments(room), [room]);
   const wallMesh = useRef<InstancedMesh>(null);
   useLayoutEffect(() => {
@@ -50,7 +52,10 @@ export function RoomMesh({ room, dimmed }: { room: Room; dimmed: boolean }) {
         receiveShadow
         onClick={(event) => {
           event.stopPropagation();
-          openRoom(room.id);
+          const office = useOffice.getState();
+          if (!editing) openRoom(room.id);
+          else if (pickedFurniture) void office.placeFurniture(Math.round(event.point.x), Math.round(event.point.z));
+          else office.editSelect(room.id);
         }}
         onPointerOver={(event) => {
           event.stopPropagation();
@@ -82,13 +87,23 @@ export function RoomMesh({ room, dimmed }: { room: Room; dimmed: boolean }) {
           <Furniture
             key={item.id}
             item={item}
-            onSelect={item.interactive && key ? () => openRoom(room.id, key) : undefined}
+            picked={pickedFurniture === item.id}
+            onSelect={
+              editing
+                ? () => {
+                    useOffice.getState().editSelect(room.id);
+                    useOffice.getState().editPick(item.id);
+                  }
+                : item.interactive && key
+                  ? () => openRoom(room.id, key)
+                  : undefined
+            }
           />
         );
       })}
       {(hovered || selected) && (
         <Html position={[cx, 2.2, cz]} center zIndexRange={[20, 0]} style={{ pointerEvents: "none" }}>
-          <div className="whitespace-nowrap rounded bg-slate-900 px-2 py-0.5 text-sm text-white shadow">{room.name}</div>
+          <div className="whitespace-nowrap rounded bg-slate-900 px-2 py-0.5 text-sm text-slate-50 shadow">{room.name}</div>
         </Html>
       )}
     </group>

@@ -1,11 +1,12 @@
 import type { ModuleProps } from "@/modules/registry";
 import { Empty } from "@/shared/ui";
 import { useOffice } from "@/store/office";
+import { t } from "@/shared/i18n";
 
 export function BreakArea(_: ModuleProps) {
   const agents = useOffice((s) => s.agents);
   const resting = Object.values(agents).filter((a) => a.status === "resting");
-  if (!resting.length) return <Empty>Nadie está descansando</Empty>;
+  if (!resting.length) return <Empty>{t("Nadie está descansando")}</Empty>;
   return (
     <ul className="space-y-1 text-sm">
       {resting.map((agent) => (

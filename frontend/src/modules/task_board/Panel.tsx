@@ -6,25 +6,40 @@ import type { Task } from "@/api/types";
 import type { ModuleProps } from "@/modules/registry";
 import { Badge, Button, ErrorNote, Field, inputClass, statusLabel } from "@/shared/ui";
 import { useOffice } from "@/store/office";
+import { t } from "@/shared/i18n";
 
 const COLUMNS = ["pending", "in_progress", "in_review", "blocked", "done", "failed"];
+
+interface TaskForm {
+  title: string;
+  instructions: string;
+  agent_id: string;
+  priority: number;
+  recurrence: string;
+  depends_on: string[];
+}
+
+const REPEAT: Record<string, string> = { daily: t("Cada día"), weekly: t("Cada semana") };
 
 export function TaskBoard({ room }: ModuleProps) {
   const client = useQueryClient();
   const agents = useOffice((s) => s.agents);
   const { data } = useQuery({ queryKey: ["board", room.id], queryFn: () => api.get<Record<string, Task[]>>(`/rooms/${room.id}/tasks`) });
-  const [form, setForm] = useState({ title: "", instructions: "", agent_id: "", priority: 2 });
+  const [form, setForm] = useState<TaskForm>({ title: "", instructions: "", agent_id: "", priority: 2, recurrence: "", depends_on: [] });
   const [error, setError] = useState<unknown>(null);
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     try {
       await api.post("/tasks", { ...form, room_id: room.id });
-      setForm({ ...form, title: "", instructions: "" });
+      setForm({ ...form, title: "", instructions: "", recurrence: "", depends_on: [] });
       await client.invalidateQueries({ queryKey: ["board", room.id] });
     } catch (failure) {
       setError(failure);
     }
   };
+  const open = COLUMNS.slice(0, 4).flatMap((column) => data?.[column] ?? []);
+  const everything = COLUMNS.flatMap((column) => data?.[column] ?? []);
+  const titleOf = (id: string) => everything.find((t) => t.id === id)?.title ?? id.slice(0, 8);
   const act = async (id: string, verb: string) => {
     setError(null);
     try {
@@ -37,19 +52,37 @@ export function TaskBoard({ room }: ModuleProps) {
   return (
     <div className="space-y-3 text-sm">
       <form onSubmit={submit} className="space-y-1 rounded bg-ink-soft p-2">
-        <Field label="Nueva tarea"><input required className={inputClass} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></Field>
-        <Field label="Instrucciones"><textarea className={inputClass} value={form.instructions} onChange={(e) => setForm({ ...form, instructions: e.target.value })} /></Field>
+        <Field label={t("Nueva tarea")}><input required className={inputClass} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></Field>
+        <Field label={t("Instrucciones")}><textarea className={inputClass} value={form.instructions} onChange={(e) => setForm({ ...form, instructions: e.target.value })} /></Field>
         <div className="flex gap-2">
-          <select required aria-label="Agente" className={inputClass} value={form.agent_id} onChange={(e) => setForm({ ...form, agent_id: e.target.value })}>
-            <option value="">Asignar a…</option>
+          <select required aria-label={t("Agente")} className={inputClass} value={form.agent_id} onChange={(e) => setForm({ ...form, agent_id: e.target.value })}>
+            <option value="">{t("Asignar a…")}</option>
             {Object.values(agents).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
           </select>
-          <select aria-label="Prioridad" className={inputClass} value={form.priority} onChange={(e) => setForm({ ...form, priority: Number(e.target.value) })}>
-            <option value={1}>Alta</option>
-            <option value={2}>Media</option>
-            <option value={3}>Baja</option>
+          <select aria-label={t("Prioridad")} className={inputClass} value={form.priority} onChange={(e) => setForm({ ...form, priority: Number(e.target.value) })}>
+            <option value={1}>{t("Alta")}</option>
+            <option value={2}>{t("Media")}</option>
+            <option value={3}>{t("Baja")}</option>
           </select>
-          <Button type="submit" tone="primary">Crear</Button>
+          <Button type="submit" tone="primary">{t("Crear")}</Button>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <Field label={t("Repetir")}>
+            <select className={inputClass} value={form.recurrence} onChange={(e) => setForm({ ...form, recurrence: e.target.value })}>
+              <option value="">{t("Una sola vez")}</option>
+              {Object.entries(REPEAT).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+            </select>
+          </Field>
+          <Field label={t("Espera a")}>
+            <select
+              multiple
+              className={`${inputClass} h-16`}
+              value={form.depends_on}
+              onChange={(e) => setForm({ ...form, depends_on: Array.from(e.target.selectedOptions, (o) => o.value) })}
+            >
+              {open.map((t) => <option key={t.id} value={t.id}>{t.title}</option>)}
+            </select>
+          </Field>
         </div>
       </form>
       <ErrorNote error={error} />
@@ -60,12 +93,14 @@ export function TaskBoard({ room }: ModuleProps) {
             {data[column].map((task) => (
               <article key={task.id} className="mt-1 rounded bg-ink-soft p-2">
                 <p>{task.title}</p>
+                {task.depends_on?.length ? <p className="text-xs text-slate-300">{t("Espera a:")} {task.depends_on.map(titleOf).join(", ")}</p> : null}
                 <p className="flex items-center gap-1 text-xs text-slate-300">
-                  {agents[task.assigned_agent_id ?? ""]?.name ?? "Sin asignar"}
-                  {task.priority === 1 && <Badge>Alta</Badge>}
+                  {agents[task.assigned_agent_id ?? ""]?.name ?? t("Sin asignar")}
+                  {task.priority === 1 && <Badge>{t("Alta")}</Badge>}
+                  {task.recurrence && <Badge>↻ {REPEAT[task.recurrence] ?? task.recurrence}</Badge>}
                   {task.blocked_reason && column === "blocked" && <Badge>{task.blocked_reason}</Badge>}
-                  {column === "failed" && <Button onClick={() => act(task.id, "retry")}>Reintentar</Button>}
-                  {["pending", "in_progress", "blocked"].includes(column) && <Button onClick={() => act(task.id, "cancel")}>Cancelar</Button>}
+                  {column === "failed" && <Button onClick={() => act(task.id, "retry")}>{t("Reintentar")}</Button>}
+                  {["pending", "in_progress", "blocked"].includes(column) && <Button onClick={() => act(task.id, "cancel")}>{t("Cancelar")}</Button>}
                 </p>
               </article>
             ))}

@@ -17,6 +17,7 @@ import { SettingsPage } from "@/features/settings/SettingsPage";
 import { OfficeView } from "@/office/OfficeView";
 import { Button } from "@/shared/ui";
 import { useOffice } from "@/store/office";
+import { t } from "@/shared/i18n";
 
 const INVALIDATIONS: Record<string, string[][]> = {
   "task.updated": [["board"], ["goals"], ["goal"], ["tasks"], ["profile"]],
@@ -76,19 +77,19 @@ function Shell() {
   };
   const data = bar.data;
   const links = [
-    ["/", "Oficina"],
-    ["/goals", "Objetivos"],
-    ["/approvals", "Aprobaciones"],
-    ["/audit", "Auditoría"],
-    ["/org", "Organigrama"],
-    ["/knowledge", "Conocimiento"],
-    ["/settings", "Ajustes"],
+    ["/", t("Oficina")],
+    ["/goals", t("Objetivos")],
+    ["/approvals", t("Aprobaciones")],
+    ["/audit", t("Auditoría")],
+    ["/org", t("Organigrama")],
+    ["/knowledge", t("Conocimiento")],
+    ["/settings", t("Ajustes")],
   ];
   return (
     <div className="flex h-full flex-col">
       <header className="flex flex-wrap items-center gap-3 border-b border-ink-line bg-ink-soft px-3 py-1.5 text-sm">
-        <strong className="text-base">{data?.company ?? "CompanyAgentsHQ"}</strong>
-        <nav aria-label="Principal" className="flex gap-1">
+        <strong className="text-base">{data?.company ?? t("CompanyAgentsHQ")}</strong>
+        <nav aria-label={t("Principal")} className="flex gap-1">
           {links.map(([to, label]) => (
             <NavLink
               key={to}
@@ -101,19 +102,19 @@ function Shell() {
           ))}
         </nav>
         <span className="ml-auto tabular-nums" data-testid="spend">
-          {data?.simulated ? "Gasto simulado" : "Gasto hoy"}: {(data?.spend_today_eur ?? 0).toFixed(3)} € / {(data?.daily_limit_eur ?? 0).toFixed(2)} €
+          {data?.simulated ? t("Gasto simulado") : t("Gasto hoy")}: {(data?.spend_today_eur ?? 0).toFixed(3)} € / {(data?.daily_limit_eur ?? 0).toFixed(2)} €
         </span>
         <button className="underline" onClick={() => navigate("/approvals")}>
-          Aprobaciones: {data?.pending_approvals ?? 0}
+          {t("Aprobaciones:")} {data?.pending_approvals ?? 0}
         </button>
         <button className="underline" onClick={() => navigate("/audit")}>
-          Anomalías: {data?.open_anomalies ?? 0}
+          {t("Anomalías:")} {data?.open_anomalies ?? 0}
         </button>
-        <span className={connected ? "text-emerald-300" : "text-amber-300"}>{connected ? "● En vivo" : "○ Reconectando"}</span>
-        <Button onClick={() => setSearching(true)}>Buscar (/)</Button>
+        <span className={connected ? "text-emerald-300" : "text-amber-300"}>{connected ? t("● En vivo") : t("○ Reconectando")}</span>
+        <Button onClick={() => setSearching(true)}>{t("Buscar (/)")}</Button>
         <NotificationsButton />
         <Button tone={paused ? "primary" : "danger"} onClick={toggle}>
-          {paused ? "▶ Reanudar" : "⏸ Pausa general"}
+          {paused ? t("▶ Reanudar") : t("⏸ Pausa general")}
         </Button>
       </header>
       <main className="min-h-0 flex-1">
@@ -151,10 +152,10 @@ export function App() {
     enabled: Boolean(me.data),
     queryFn: () => api.get<{ exists: boolean; templates: string[] }>("/company/exists"),
   });
-  if (status.isLoading || (me.isLoading && me.fetchStatus !== "idle")) return <p className="p-6">Cargando…</p>;
-  if (status.isError) return <p className="p-6">No se puede contactar con el servidor.</p>;
+  if (status.isLoading || (me.isLoading && me.fetchStatus !== "idle")) return <p className="p-6">{t("Cargando…")}</p>;
+  if (status.isError) return <p className="p-6">{t("No se puede contactar con el servidor.")}</p>;
   if (status.data?.needs_setup || !me.data) return <LoginPage setup={Boolean(status.data?.needs_setup)} />;
-  if (company.isLoading) return <p className="p-6">Cargando…</p>;
+  if (company.isLoading) return <p className="p-6">{t("Cargando…")}</p>;
   if (!company.data?.exists) return <OnboardingPage />;
   return <Shell />;
 }

@@ -6,6 +6,7 @@ import type { AgentStatus } from "@/api/types";
 import { STATUS } from "@/office/status";
 import { Button, ErrorNote, Field, inputClass } from "@/shared/ui";
 import { useOffice } from "@/store/office";
+import { t } from "@/shared/i18n";
 
 interface Node {
   id: string;
@@ -23,7 +24,7 @@ interface Supervision {
   tools: string[];
 }
 
-const KINDS: Record<string, string> = { review: "Revisión de resultados", pre_approval: "Aprobación previa", observer: "Observador" };
+const KINDS: Record<string, string> = { review: t("Revisión de resultados"), pre_approval: t("Aprobación previa"), observer: t("Observador") };
 
 function Branch({ node }: { node: Node }) {
   return (
@@ -76,46 +77,46 @@ function HireForm() {
   };
   return (
     <form onSubmit={submit} className="space-y-2 rounded bg-ink-soft p-3">
-      <h2 className="font-semibold">Contratar agente</h2>
-      <Field label="Nombre"><input required className={inputClass} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
-      <Field label="Cargo">
+      <h2 className="font-semibold">{t("Contratar agente")}</h2>
+      <Field label={t("Nombre")}><input required className={inputClass} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
+      <Field label={t("Cargo")}>
         <select required className={inputClass} value={choice} onChange={(e) => setChoice(e.target.value)}>
-          <option value="">Elige cargo</option>
+          <option value="">{t("Elige cargo")}</option>
           {catalog?.groups.map((group) => (
             <optgroup key={group.name} label={group.name}>
               {group.roles.map((r) => <option key={r.key} value={r.key}>{r.code} · {r.title}</option>)}
             </optgroup>
           ))}
-          <option value={OTHER_ROLE}>Otro cargo…</option>
+          <option value={OTHER_ROLE}>{t("Otro cargo…")}</option>
         </select>
       </Field>
-      {chosen && <p className="text-xs text-slate-300">{chosen.description} Irá a la sala de su área.</p>}
-      {choice === OTHER_ROLE && <Field label="Rol"><input required className={inputClass} placeholder="seo, contable…" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} /></Field>}
+      {chosen && <p className="text-xs text-slate-300">{chosen.description} {t("Irá a la sala de su área.")}</p>}
+      {choice === OTHER_ROLE && <Field label={t("Rol")}><input required className={inputClass} placeholder={t("seo, contable…")} value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} /></Field>}
       {!chosen && (
         <>
-      <Field label="Sala base">
+      <Field label={t("Sala base")}>
         <select required className={inputClass} value={form.home_room_id} onChange={(e) => setForm({ ...form, home_room_id: e.target.value })}>
-          <option value="">Elige sala</option>
+          <option value="">{t("Elige sala")}</option>
           {snapshot?.office.rooms.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
         </select>
       </Field>
-      <Field label="Departamento">
+      <Field label={t("Departamento")}>
         <select className={inputClass} value={form.department_id} onChange={(e) => setForm({ ...form, department_id: e.target.value })}>
-          <option value="">Sin departamento</option>
+          <option value="">{t("Sin departamento")}</option>
           {snapshot?.departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
         </select>
       </Field>
         </>
       )}
-      <Field label="Jefe">
+      <Field label={t("Jefe")}>
         <select className={inputClass} value={form.manager_id} onChange={(e) => setForm({ ...form, manager_id: e.target.value })}>
-          <option value="">Sin jefe</option>
+          <option value="">{t("Sin jefe")}</option>
           {Object.values(agents).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
         </select>
       </Field>
-      <Field label="Modelo"><input className={inputClass} value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} /></Field>
+      <Field label={t("Modelo")}><input className={inputClass} value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} /></Field>
       <ErrorNote error={error} />
-      <Button type="submit" tone="primary">Contratar</Button>
+      <Button type="submit" tone="primary">{t("Contratar")}</Button>
     </form>
   );
 }
@@ -141,35 +142,35 @@ function Supervisions() {
   const select = (label: string, key: "supervisor_id" | "supervised_id") => (
     <Field label={label}>
       <select required className={inputClass} value={form[key]} onChange={(e) => setForm({ ...form, [key]: e.target.value })}>
-        <option value="">Elige agente</option>
+        <option value="">{t("Elige agente")}</option>
         {Object.values(agents).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
       </select>
     </Field>
   );
   return (
     <section className="space-y-2 rounded bg-ink-soft p-3">
-      <h2 className="font-semibold">Supervisión</h2>
+      <h2 className="font-semibold">{t("Supervisión")}</h2>
       <form onSubmit={submit} className="space-y-2">
         {select("Supervisor", "supervisor_id")}
         {select("Supervisado", "supervised_id")}
-        <Field label="Tipo">
+        <Field label={t("Tipo")}>
           <select className={inputClass} value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value })}>
             {Object.entries(KINDS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
           </select>
         </Field>
         {form.kind === "pre_approval" && (
-          <Field label="Herramientas (separadas por comas)">
+          <Field label={t("Herramientas (separadas por comas)")}>
             <input className={inputClass} value={form.tools} onChange={(e) => setForm({ ...form, tools: e.target.value })} />
           </Field>
         )}
         <ErrorNote error={error} />
-        <Button type="submit">Añadir</Button>
+        <Button type="submit">{t("Añadir")}</Button>
       </form>
       <ul className="text-sm">
         {data.filter((s) => s.kind !== "observer").map((item) => (
           <li key={item.id} className="flex items-center justify-between gap-2 border-t border-ink-line py-1">
             <span>{name(item.supervisor_id)} → {name(item.supervised_id)}: {KINDS[item.kind]} {item.tools.join(", ")}</span>
-            <Button onClick={async () => { await api.del(`/supervisions/${item.id}`); await refresh(); }}>Quitar</Button>
+            <Button onClick={async () => { await api.del(`/supervisions/${item.id}`); await refresh(); }}>{t("Quitar")}</Button>
           </li>
         ))}
       </ul>
@@ -182,8 +183,8 @@ export function OrgChartPage() {
   return (
     <div className="grid h-full grid-cols-[1fr_22rem] gap-4 overflow-y-auto p-4">
       <div>
-        <h1 className="mb-2 text-lg font-semibold">Organigrama</h1>
-        <p className="mb-2 text-sm text-slate-300">Dueño · Consejo de Administración</p>
+        <h1 className="mb-2 text-lg font-semibold">{t("Organigrama")}</h1>
+        <p className="mb-2 text-sm text-slate-300">{t("Dueño · Consejo de Administración")}</p>
         <ul>{data.map((node) => <Branch key={node.id} node={node} />)}</ul>
       </div>
       <div className="space-y-3">

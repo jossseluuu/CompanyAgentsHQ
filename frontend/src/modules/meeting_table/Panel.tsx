@@ -5,6 +5,7 @@ import { api, fileUrl } from "@/api/client";
 import type { ModuleProps } from "@/modules/registry";
 import { Badge, Button, ErrorNote, Field, inputClass } from "@/shared/ui";
 import { useOffice } from "@/store/office";
+import { t } from "@/shared/i18n";
 
 interface Meeting {
   id: string;
@@ -33,7 +34,7 @@ export function MeetingTable(_: ModuleProps) {
   return (
     <div className="space-y-3 text-sm">
       <form onSubmit={submit} className="space-y-1">
-        <Field label="Tema"><input required className={inputClass} value={topic} onChange={(e) => setTopic(e.target.value)} /></Field>
+        <Field label={t("Tema")}><input required className={inputClass} value={topic} onChange={(e) => setTopic(e.target.value)} /></Field>
         <div className="flex flex-wrap gap-2">
           {Object.values(agents).map((agent) => (
             <label key={agent.id} className="flex items-center gap-1">
@@ -47,14 +48,14 @@ export function MeetingTable(_: ModuleProps) {
           ))}
         </div>
         <ErrorNote error={error} />
-        <Button type="submit" tone="primary" disabled={participants.length < 2}>Convocar</Button>
+        <Button type="submit" tone="primary" disabled={participants.length < 2}>{t("Convocar")}</Button>
       </form>
       <ul>
         {data.map((meeting) => (
           <li key={meeting.id} className="flex items-center gap-2 border-t border-ink-line py-1">
             <span className="flex-1">{meeting.topic}</span>
             <Badge>{meeting.status}</Badge>
-            {meeting.minutes_file_id && <a className="underline" href={fileUrl(meeting.minutes_file_id, true)} target="_blank" rel="noreferrer">Acta</a>}
+            {meeting.minutes_file_id && <a className="underline" href={fileUrl(meeting.minutes_file_id, true)} target="_blank" rel="noreferrer">{t("Acta")}</a>}
           </li>
         ))}
       </ul>
