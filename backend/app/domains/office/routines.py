@@ -12,6 +12,8 @@ DEFAULT_RULES: dict[str, str] = {
     "resting": "break",
 }
 
+TARGETS = frozenset(DEFAULT_RULES.values())
+
 
 def destination(rules: dict[str, Any], status: str, tool: str | None) -> str | None:
     merged = {**DEFAULT_RULES, **rules}

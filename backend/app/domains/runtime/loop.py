@@ -15,7 +15,7 @@ from app.core.db import session_scope, utcnow
 from app.core.errors import AppError, EmbeddingsDown
 from app.core.events import emit, emit_now
 from app.core.plugins import ToolContext
-from app.core.util import as_uuid, normalize_citations, row
+from app.core.util import as_uuid, drop_unsupported_citations, normalize_citations, row
 from app.domains.agents import service as agents_service
 from app.domains.approvals import service as approvals_service
 from app.domains.audit import anomalies
@@ -427,6 +427,10 @@ async def _answered_nothing(db: AsyncSession, task: Any, response: Any) -> bool:
     return not any(c.status in tasks_service.OPEN for c in await tasks_service.children(db, task.id))
 
 
+def _used_tools(task: Any) -> bool:
+    return any(isinstance(m.get("content"), list) and m["role"] == "user" for m in task.conversation)
+
+
 async def _finish(db: AsyncSession, task: Any, agent: Any, text: str, had_sources: bool) -> None:
     open_children = [c for c in await tasks_service.children(db, task.id) if c.status in tasks_service.OPEN]
     if open_children:
@@ -434,6 +438,8 @@ async def _finish(db: AsyncSession, task: Any, agent: Any, text: str, had_source
         await release_and_next(db, agent)
         return
     text = normalize_citations(text)
+    if not had_sources and not _used_tools(task):
+        text = drop_unsupported_citations(text, set())
     task.result_text = text
     room_id = task.room_id or agent.home_room_id
     file = await files_service.create(
@@ -745,6 +751,7 @@ async def chat_reply(agent_id: str, message_id: str) -> None:
 
     text = ""
     used: list[Any] = fragments
+    searched = False
     try:
         for step in range(CHAT_STEPS):
             asked = await ask(
@@ -756,6 +763,7 @@ async def chat_reply(agent_id: str, message_id: str) -> None:
             if not asked.response.tool_calls:
                 break
             messages.append({"role": "assistant", "content": asked.response.content})
+            searched = True
             results = []
             async with session_scope() as db:
                 agent = await agents_service.require(db, identifier)
@@ -770,6 +778,8 @@ async def chat_reply(agent_id: str, message_id: str) -> None:
     except (BudgetBlocked, ProviderDown, LLMError) as exc:
         text = f"No puedo responder ahora: {exc}"
     text = normalize_citations(text)
+    if not searched:
+        text = drop_unsupported_citations(text, set(range(1, len(fragments) + 1)))
     numbers = {int(n) for n in re.findall(r"\[(\d+)\]", text)}
     citations = [f.citation(i) for i, f in enumerate(fragments, start=1) if i in numbers]
     async with session_scope() as db:

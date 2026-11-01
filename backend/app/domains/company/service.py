@@ -164,17 +164,19 @@ async def place_role(db: AsyncSession, company_id: uuid.UUID, role: str) -> dict
     room = await office_service.room_by_slug(db, company_id, area["room"])
     if room is None and "new_room" in area:
         spec = area["new_room"]
+        free = await office_service.is_free(db, company_id, spec["x"], spec["y"], spec["w"], spec["h"])
+        x, y = (spec["x"], spec["y"]) if free else await office_service.free_spot(db, company_id)
         room = await office_service.create_room(
             db,
             company_id,
             name=spec["name"],
             slug=area["room"],
-            grid_x=spec["x"],
-            grid_y=spec["y"],
+            grid_x=x,
+            grid_y=y,
             width=spec["w"],
             height=spec["h"],
             color=spec["color"],
-            doors=[[spec["x"] + spec["door"][0], spec["y"] + spec["door"][1]]],
+            doors=[[x + spec["door"][0], y + spec["door"][1]]],
         )
         for key in ("filing_cabinet", "task_board", "knowledge_base", "team"):
             await office_service.install_module(db, room, key)

@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
@@ -34,7 +34,7 @@ class TaskIn(BaseModel):
     room_id: uuid.UUID | None = None
     priority: int = Field(default=2, ge=1, le=3)
     due_at: datetime | None = None
-    recurrence: str = ""
+    recurrence: Literal["", "daily", "weekly"] = ""
     depends_on: list[uuid.UUID] = []
 
 

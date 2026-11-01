@@ -86,8 +86,13 @@ async def patch(db: AsyncSession, task: Task, fields: dict[str, Any]) -> Task:
 async def board(db: AsyncSession, room_id: uuid.UUID) -> dict[str, list[dict[str, Any]]]:
     stmt = select(Task).where(Task.room_id == room_id, Task.status.in_(list(BOARD_COLUMNS) + ["failed"]))
     columns: dict[str, list[dict[str, Any]]] = {key: [] for key in [*BOARD_COLUMNS, "failed"]}
-    for task in (await db.execute(stmt.order_by(Task.priority, Task.created_at))).scalars():
-        columns[task.status].append(row(task, *PUBLIC_EXCLUDE))
+    tasks = list((await db.execute(stmt.order_by(Task.priority, Task.created_at))).scalars())
+    links = select(TaskDependency).where(TaskDependency.task_id.in_([t.id for t in tasks]))
+    waits: dict[uuid.UUID, list[str]] = {}
+    for link in (await db.execute(links)).scalars():
+        waits.setdefault(link.task_id, []).append(str(link.depends_on_task_id))
+    for task in tasks:
+        columns[task.status].append({**row(task, *PUBLIC_EXCLUDE), "depends_on": waits.get(task.id, [])})
     return columns
 
 

@@ -2,13 +2,14 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Response, UploadFile
 from pydantic import BaseModel, Field
 
 from app.core.auth import CurrentOwner
 from app.core.db import Db
+from app.core.errors import AppError
 from app.core.util import row
-from app.domains.company import service
+from app.domains.company import portability, service
 from app.domains.company.service import CompanyDep
 from app.domains.finance import service as finance_service
 from app.domains.runtime import service as runtime_service
@@ -96,3 +97,17 @@ async def patch_ai(body: AiSettings, company: CompanyDep, db: Db) -> dict[str, A
 async def spend(company: CompanyDep, db: Db) -> dict[str, Any]:
     now = datetime.now().date()
     return {"today_eur": await finance_service.spend_on(db, company.id, now)}
+
+
+@router.get("/export")
+async def export_zip(company: CompanyDep, db: Db) -> Response:
+    data = await portability.export_company(db, company.id)
+    headers = {"Content-Disposition": 'attachment; filename="companyagentshq-export.zip"'}
+    return Response(data, media_type="application/zip", headers=headers)
+
+
+@router.post("/import", status_code=201)
+async def import_zip(file: UploadFile, owner: CurrentOwner, db: Db) -> dict[str, str]:
+    if await service.company_of(db, owner.id):
+        raise AppError("company_exists", "Ya tienes una empresa: importa en una instalación nueva", 409)
+    return {"id": str(await portability.import_company(db, owner.id, await file.read()))}

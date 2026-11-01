@@ -86,6 +86,14 @@ async def create(
     return file
 
 
+async def read_key(key: str) -> bytes:
+    return await storage().get(key)
+
+
+async def write_key(key: str, data: bytes, mime: str) -> None:
+    await storage().put(key, data, mime)
+
+
 async def _latest_version(db: AsyncSession, room_id: uuid.UUID, folder: str, name: str) -> File | None:
     stmt = (
         select(File)

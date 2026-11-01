@@ -6,10 +6,12 @@ from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
 from app.core.db import Db
+from app.core.errors import AppError
 from app.core.util import row, rows
 from app.domains.agents import service
 from app.domains.company import service as company_service
 from app.domains.company.service import CompanyDep
+from app.domains.office import service as office_service
 from app.domains.runtime import service as runtime_service
 
 router = APIRouter(tags=["agents"])
@@ -149,9 +151,17 @@ async def add_prompt(agent_id: uuid.UUID, body: PromptIn, company: CompanyDep, d
     return row(await service.add_prompt_version(db, agent, body.system_prompt or "", body.note))
 
 
+@router.get("/agents/{agent_id}/routine")
+async def get_routine(agent_id: uuid.UUID, company: CompanyDep, db: Db) -> dict[str, Any]:
+    await service.get(db, company.id, agent_id)
+    return {"rules": await service.routine_rules(db, agent_id), **office_service.routine_options()}
+
+
 @router.put("/agents/{agent_id}/routine")
 async def routine(agent_id: uuid.UUID, rules: dict[str, Any], company: CompanyDep, db: Db) -> dict[str, Any]:
     await service.get(db, company.id, agent_id)
+    if not set(map(str, rules.values())) <= set(office_service.routine_options()["targets"]):
+        raise AppError("unknown_target", "Ese destino de rutina no existe", 422)
     await service.set_routine(db, agent_id, rules)
     return rules
 

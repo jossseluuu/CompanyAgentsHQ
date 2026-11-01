@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     s3_secret_key: str = ""
     s3_bucket: str = "companyagentshq"
     max_upload_mb: int = 50
+    max_import_mb: int = 1024
 
     llm_provider: str = "fake"
     anthropic_api_key: str = ""

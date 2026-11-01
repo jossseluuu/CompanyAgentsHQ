@@ -43,6 +43,14 @@ def normalize_citations(text: str) -> str:
     return _CITATION.sub(rewrite, text)
 
 
+def drop_unsupported_citations(text: str, valid: set[int]) -> str:
+    """Un modelo local cita [1] aunque no haya fuentes: lo que no se puede comprobar no se muestra."""
+    kept = re.sub(r" ?\[(\d+)\]", lambda m: m.group() if int(m.group(1)) in valid else "", text)
+    if not valid:
+        kept = re.sub(r"\n+[*#_ ]*(Referencias|Fuentes|References|Sources)\b.*\Z", "", kept, flags=re.S | re.I)
+    return kept.rstrip()
+
+
 class JsonFormatter(logging.Formatter):
     """Registros estructurados (RNF-MAN-08)."""
 

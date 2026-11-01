@@ -14,7 +14,7 @@ from app.core.util import as_uuid, row, rows
 from app.domains.agents import service as agents_service
 from app.domains.office.models import AgentMove, Furniture, Room, RoomAccess, RoomModuleRow
 from app.domains.office.pathfinding import Tile, find_path, wall_tiles
-from app.domains.office.routines import destination
+from app.domains.office.routines import DEFAULT_RULES, TARGETS, destination
 
 GRID_MARGIN = 2
 _walk_generation: dict[uuid.UUID, int] = {}
@@ -64,7 +64,31 @@ async def _room_furniture(db: AsyncSession, room_id: uuid.UUID) -> list[Furnitur
     return list((await db.execute(stmt)).scalars())
 
 
+def _overlaps(room: Room, x: int, y: int, width: int, height: int) -> bool:
+    apart_x = x >= room.grid_x + room.width or room.grid_x >= x + width
+    apart_y = y >= room.grid_y + room.height or room.grid_y >= y + height
+    return not (apart_x or apart_y)
+
+
+async def is_free(
+    db: AsyncSession, company_id: uuid.UUID, x: int, y: int, width: int, height: int, skip: uuid.UUID | None = None
+) -> bool:
+    return not any(r.id != skip and _overlaps(r, x, y, width, height) for r in await list_rooms(db, company_id))
+
+
+async def free_spot(db: AsyncSession, company_id: uuid.UUID) -> tuple[int, int]:
+    """Debajo de la última sala, con un pasillo de por medio."""
+    rooms = await list_rooms(db, company_id)
+    return 1, max((r.grid_y + r.height for r in rooms), default=-1) + 2
+
+
 async def create_room(db: AsyncSession, company_id: uuid.UUID, **fields: Any) -> Room:
+    if not await is_free(db, company_id, fields["grid_x"], fields["grid_y"], fields["width"], fields["height"]):
+        raise AppError("room_overlap", "Esa sala se solapa con otra", 409)
+    if await room_by_slug(db, company_id, fields["slug"]):
+        raise AppError("room_slug_taken", "Ya hay una sala con ese identificador", 409)
+    if not fields.get("doors"):
+        fields["doors"] = [[fields["grid_x"] + fields["width"] // 2, fields["grid_y"]]]
     room = Room(company_id=company_id, **fields)
     db.add(room)
     await db.flush()
@@ -72,7 +96,42 @@ async def create_room(db: AsyncSession, company_id: uuid.UUID, **fields: Any) ->
     return room
 
 
+def _carry_doors(room: Room, x: int, y: int, width: int, height: int) -> list[list[int]]:
+    """Cada puerta sigue en su pared al mover o redimensionar la sala."""
+    right, bottom = room.grid_x + room.width - 1, room.grid_y + room.height - 1
+    doors = []
+    for door_x, door_y in room.doors:
+        new_x = x + width - 1 if door_x == right else x if door_x == room.grid_x else door_x - room.grid_x + x
+        new_y = y + height - 1 if door_y == bottom else y if door_y == room.grid_y else door_y - room.grid_y + y
+        doors.append([min(max(new_x, x), x + width - 1), min(max(new_y, y), y + height - 1)])
+    return doors
+
+
+async def _reshape(db: AsyncSession, room: Room, fields: dict[str, Any]) -> None:
+    x, y = fields.get("grid_x", room.grid_x), fields.get("grid_y", room.grid_y)
+    width, height = fields.get("width", room.width), fields.get("height", room.height)
+    if not await is_free(db, room.company_id, x, y, width, height, skip=room.id):
+        raise AppError("room_overlap", "Esa sala se solapa con otra", 409)
+    dx, dy = x - room.grid_x, y - room.grid_y
+    inside = {(a, b) for a in range(x + 1, x + width - 1) for b in range(y + 1, y + height - 1)}
+    items = await _room_furniture(db, room.id)
+    agents = await agents_service.agents_in_room(db, room.id)
+    spots = [(f.grid_x + dx, f.grid_y + dy) for f in items] + [(a.seat_x + dx, a.seat_y + dy) for a in agents]
+    if any(spot not in inside for spot in spots):
+        raise AppError("room_too_small", "Mueve antes los muebles o los puestos que quedarían fuera", 409)
+    if "doors" not in fields:
+        fields["doors"] = _carry_doors(room, x, y, width, height)
+    for item in items:
+        item.grid_x, item.grid_y = item.grid_x + dx, item.grid_y + dy
+    for agent in agents:
+        agent.seat_x, agent.seat_y = agent.seat_x + dx, agent.seat_y + dy
+        agent.pos_x, agent.pos_y = agent.pos_x + dx, agent.pos_y + dy
+        await emit(db, "agent.updated", row(agent))
+
+
 async def update_room(db: AsyncSession, room: Room, fields: dict[str, Any]) -> Room:
+    if fields.keys() & {"grid_x", "grid_y", "width", "height"}:
+        await _reshape(db, room, fields)
     for key, value in fields.items():
         setattr(room, key, value)
     await db.flush()
@@ -121,6 +180,39 @@ async def add_furniture(
     return item
 
 
+async def _reachable(db: AsyncSession, room: Room) -> bool:
+    width, height, blocked = await build_grid(db, room.company_id)
+    seats = await agents_service.seats_in_room(db, room.id)
+    if not room.doors:
+        return True
+    door = (room.doors[0][0], room.doors[0][1])
+    return all(find_path(width, height, blocked - {seat}, door, seat) for seat in seats)
+
+
+async def move_furniture(
+    db: AsyncSession, company_id: uuid.UUID, furniture_id: uuid.UUID, x: int, y: int, rotation: int
+) -> Furniture:
+    item = await db.get(Furniture, furniture_id)
+    module = await db.get(RoomModuleRow, item.room_module_id) if item else None
+    if item is None or module is None:
+        raise NotFound("Mueble")
+    room = await get_room(db, company_id, module.room_id)
+    others = {(f.grid_x, f.grid_y) for f in await _room_furniture(db, room.id) if f.id != item.id}
+    if (x, y) not in _interior(room):
+        raise AppError("tile_outside", "El mueble debe quedar dentro de su sala", 409)
+    if (x, y) in others | _reserved(room) | await agents_service.seats_in_room(db, room.id):
+        raise AppError("tile_taken", "Esa casilla está ocupada o bloquea una puerta", 409)
+    previous = (item.grid_x, item.grid_y)
+    item.grid_x, item.grid_y, item.rotation = x, y, rotation
+    await db.flush()
+    if not await _reachable(db, room):
+        item.grid_x, item.grid_y = previous
+        await db.flush()
+        raise AppError("tile_blocks_path", "Ahí dejaría a un agente sin paso", 409)
+    await emit(db, "module.updated", {"room_id": room.id, "module_key": module.module_key})
+    return item
+
+
 async def install_module(db: AsyncSession, room: Room, key: str, config: dict[str, Any] | None = None) -> RoomModuleRow:
     plugin = plugins.modules().get(key)
     if plugin is None:
@@ -163,6 +255,10 @@ async def configure_module(db: AsyncSession, room: Room, key: str, config: dict[
     await db.flush()
     await emit(db, "module.updated", {"room_id": room.id, "module_key": key})
     return module
+
+
+def routine_options() -> dict[str, Any]:
+    return {"defaults": DEFAULT_RULES, "targets": sorted(TARGETS)}
 
 
 def catalog() -> list[dict[str, Any]]:
@@ -250,11 +346,17 @@ async def _free_tile(db: AsyncSession, room: Room, blocked: set[Tile], agent: An
 async def assign_seat(db: AsyncSession, agent: Any) -> None:
     room = await get_room(db, agent.company_id, agent.home_room_id)
     _, _, blocked = await build_grid(db, agent.company_id)
-    tile = await _free_tile(db, room, blocked | await agents_service.seats_in_room(db, room.id), agent)
+    taken = blocked | await agents_service.seats_in_room(db, room.id) | _reserved(room)
+    with_desk = [(x, y) for x, y in _interior(room) if (x, y) not in taken and (x, y - 1) in set(_interior(room)) - taken]
+    tile = with_desk[0] if with_desk else await _free_tile(db, room, taken, agent)
     if tile is not None:
         agent.seat_x, agent.seat_y = agent.pos_x, agent.pos_y = tile
         agent.current_room_id = room.id
         await db.flush()
+        if with_desk:
+            team = await install_module(db, room, "team")
+            await add_furniture(db, room, team, "desk", tile[0], tile[1] - 1, 0, True)
+            await emit(db, "module.updated", {"room_id": room.id, "module_key": "team"})
         await emit(db, "agent.updated", row(agent))
 
 

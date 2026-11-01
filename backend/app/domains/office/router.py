@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 from app.core.db import Db
 from app.core.util import row
 from app.domains.company.service import CompanyDep
+from app.domains.knowledge import service as knowledge_service
 from app.domains.office import service
 
 router = APIRouter(tags=["office"])
@@ -19,19 +20,25 @@ class RoomIn(BaseModel):
     grid_y: int = Field(ge=0)
     width: int = Field(ge=4, le=40)
     height: int = Field(ge=4, le=40)
-    color: str = "#94a3b8"
+    color: str = Field(default="#94a3b8", pattern=r"^#[0-9a-fA-F]{6}$")
     doors: list[list[int]] = []
 
 
 class RoomPatch(BaseModel):
     name: str | None = None
     color: str | None = None
-    grid_x: int | None = None
-    grid_y: int | None = None
-    width: int | None = None
-    height: int | None = None
+    grid_x: int | None = Field(default=None, ge=0)
+    grid_y: int | None = Field(default=None, ge=0)
+    width: int | None = Field(default=None, ge=4, le=40)
+    height: int | None = Field(default=None, ge=4, le=40)
     doors: list[list[int]] | None = None
     restricted: bool | None = None
+
+
+class FurnitureMove(BaseModel):
+    grid_x: int = Field(ge=0)
+    grid_y: int = Field(ge=0)
+    rotation: int = Field(default=0, ge=0, lt=360)
 
 
 class ModuleIn(BaseModel):
@@ -57,7 +64,10 @@ async def office(company: CompanyDep, db: Db) -> dict[str, Any]:
 
 @router.post("/rooms", status_code=201)
 async def create_room(body: RoomIn, company: CompanyDep, db: Db) -> dict[str, Any]:
-    return row(await service.create_room(db, company.id, **body.model_dump()))
+    room = await service.create_room(db, company.id, **body.model_dump())
+    await service.install_module(db, room, "team")
+    await knowledge_service.ensure_base(db, company.id, "room", room.id, f"Conocimiento de {room.name}")
+    return row(room)
 
 
 @router.get("/rooms/{room_id}")
@@ -69,6 +79,11 @@ async def get_room(room_id: uuid.UUID, company: CompanyDep, db: Db) -> dict[str,
 async def patch_room(room_id: uuid.UUID, body: RoomPatch, company: CompanyDep, db: Db) -> dict[str, Any]:
     room = await service.get_room(db, company.id, room_id)
     return row(await service.update_room(db, room, body.model_dump(exclude_unset=True)))
+
+
+@router.patch("/furniture/{furniture_id}")
+async def move_furniture(furniture_id: uuid.UUID, body: FurnitureMove, company: CompanyDep, db: Db) -> dict[str, Any]:
+    return row(await service.move_furniture(db, company.id, furniture_id, body.grid_x, body.grid_y, body.rotation))
 
 
 @router.delete("/rooms/{room_id}", status_code=204)
