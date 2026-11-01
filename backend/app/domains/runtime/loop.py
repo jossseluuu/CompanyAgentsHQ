@@ -135,7 +135,10 @@ async def ask(
         if reason:
             raise BudgetBlocked(reason)
         system, prompt_version = await context.system_prompt(db, company, agent)
-        client, model = resolve(agent.model, company.ai_settings or {})
+        try:
+            client, model = await resolve(agent.model, company.ai_settings or {})
+        except LLMError as exc:
+            raise ProviderDown(str(exc)) from exc
         meta = {"kind": kind, "role": agent.role, **(metadata or {})}
         if fragments:
             meta |= {"fragments": len(fragments), "first_fragment": fragments[0].content[:200]}

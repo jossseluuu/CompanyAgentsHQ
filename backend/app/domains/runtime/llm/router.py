@@ -5,12 +5,13 @@ from typing import Any
 import httpx
 
 from app.core.config import get_settings
-from app.domains.runtime.llm.base import LLMClient
+from app.domains.runtime.llm.base import LLMClient, LLMError
 from app.domains.runtime.llm.claude import ClaudeClient
 from app.domains.runtime.llm.fake import FakeLLM
 from app.domains.runtime.llm.openai_compat import OpenAICompatibleClient
 
 PROVIDERS = {"anthropic", "ollama", "openai_compatible", "fake"}
+EMBEDDING_MARKS = ("embed", "bge-", "minilm")
 fake = FakeLLM()
 _claude: ClaudeClient | None = None
 
@@ -24,7 +25,18 @@ def _named(model: str, ai_settings: dict[str, Any]) -> str:
     return model
 
 
-def resolve(model: str, ai_settings: dict[str, Any]) -> tuple[LLMClient, str]:
+def _is_chat_model(name: str) -> bool:
+    return not any(mark in name.lower() for mark in EMBEDDING_MARKS)
+
+
+async def _first_local_model() -> str:
+    models = [m for m in await ollama_models() if _is_chat_model(m)]
+    if not models:
+        raise LLMError("Ollama no responde o no tiene modelos: arráncalo y descarga uno con «ollama pull»")
+    return models[0]
+
+
+async def resolve(model: str, ai_settings: dict[str, Any]) -> tuple[LLMClient, str]:
     global _claude
     settings = get_settings()
     if settings.llm_provider == "fake":  # el modo simulado nunca llama fuera (RNF-COS-08)
@@ -34,7 +46,9 @@ def resolve(model: str, ai_settings: dict[str, Any]) -> tuple[LLMClient, str]:
     if provider not in PROVIDERS or not rest:
         provider, rest = settings.llm_provider, name
     if provider == "ollama":
-        return OpenAICompatibleClient(f"{settings.ollama_url}/v1"), rest
+        # Los valores por defecto son de Claude: sin modelo elegido se usa uno instalado, nunca la API de pago.
+        chosen = await _first_local_model() if rest.startswith("claude-") else rest
+        return OpenAICompatibleClient(f"{settings.ollama_url}/v1"), chosen
     if provider == "openai_compatible":
         return OpenAICompatibleClient(settings.openai_base_url, settings.openai_api_key), rest
     if provider == "fake":

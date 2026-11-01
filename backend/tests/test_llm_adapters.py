@@ -7,11 +7,13 @@ import httpx
 import httpx2
 import pytest
 
+from app.core.config import get_settings
 from app.domains.knowledge.embeddings import OllamaEmbeddings
 from app.domains.runtime.llm import claude as claude_module
 from app.domains.runtime.llm import openai_compat
 from app.domains.runtime.llm.base import LLMError, LLMRequest
 from app.domains.runtime.llm.claude import ClaudeClient
+from app.domains.runtime.llm.router import resolve
 
 
 def _sse(events: list[dict]) -> bytes:
@@ -138,6 +140,42 @@ async def test_local_model_stream_with_tools(monkeypatch: pytest.MonkeyPatch) ->
     assert response.input_tokens == 5 and seen["temperature"] == 0.7
     assert [m["role"] for m in seen["messages"]] == ["system", "user", "assistant", "tool"]
     assert seen["tools"][0]["function"]["name"] == "read_file"
+
+
+async def test_ollama_picks_an_installed_chat_model(monkeypatch: pytest.MonkeyPatch) -> None:
+    settings = get_settings()
+    monkeypatch.setattr(settings, "llm_provider", "ollama")
+
+    def tags(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"models": [{"name": "bge-m3:latest"}, {"name": "qwen3:8b"}]})
+
+    _patch_httpx(monkeypatch, tags)
+    client, model = await resolve("powerful", {})
+    assert isinstance(client, openai_compat.OpenAICompatibleClient) and model == "qwen3:8b"
+    assert (await resolve("fast", {"fast_model": "ollama:gemma3"}))[1] == "gemma3"
+
+
+async def test_ollama_never_falls_back_to_paid_api(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(get_settings(), "llm_provider", "ollama")
+    _patch_httpx(monkeypatch, lambda _: httpx.Response(200, json={"models": []}))
+    with pytest.raises(LLMError, match="ollama pull"):
+        await resolve("powerful", {})
+
+
+async def test_ollama_down_pauses_the_agent_instead_of_failing(api, monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.domains.runtime.llm import router
+    from tests.conftest import agent_id, settle
+
+    async def down() -> list[str]:
+        return []
+
+    monkeypatch.setattr(get_settings(), "llm_provider", "ollama")
+    monkeypatch.setattr(router, "ollama_models", down)
+    task = await api.post("/tasks", {"title": "T", "agent_id": await agent_id(api, "redactor")})
+    await settle()
+    agent = await api.get(f"/agents/{task['assigned_agent_id']}")
+    assert agent["status"] == "paused" and "ollama pull" in agent["pause_reason"]
+    assert (await api.get(f"/tasks/{task['id']}"))["blocked_reason"] == "provider"
 
 
 async def test_ollama_embeddings(monkeypatch: pytest.MonkeyPatch) -> None:

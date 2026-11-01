@@ -101,7 +101,7 @@ function Shell() {
           ))}
         </nav>
         <span className="ml-auto tabular-nums" data-testid="spend">
-          Gasto hoy: {(data?.spend_today_eur ?? 0).toFixed(3)} € / {(data?.daily_limit_eur ?? 0).toFixed(2)} €
+          {data?.simulated ? "Gasto simulado" : "Gasto hoy"}: {(data?.spend_today_eur ?? 0).toFixed(3)} € / {(data?.daily_limit_eur ?? 0).toFixed(2)} €
         </span>
         <button className="underline" onClick={() => navigate("/approvals")}>
           Aprobaciones: {data?.pending_approvals ?? 0}

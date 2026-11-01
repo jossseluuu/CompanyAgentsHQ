@@ -88,6 +88,7 @@ export interface StatusBar {
   status: string;
   spend_today_eur: number;
   daily_limit_eur: number;
+  simulated: boolean;
   pending_approvals: number;
   open_anomalies: number;
 }

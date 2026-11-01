@@ -29,7 +29,24 @@ npm run dev
 
 Abre http://localhost:5173. PostgreSQL con pgvector se instala y arranca solo dentro de `backend/.local`.
 
-## Usar modelos reales
+## Coste
+
+Por defecto no se paga nada: `LLM_PROVIDER=fake` no llama a ningún modelo y el contador indica «Gasto simulado». Con Ollama tampoco hay coste. Solo la API de Claude factura, y únicamente si pones `LLM_PROVIDER=anthropic` y una clave tuya.
+
+## Usar Ollama (gratis y local)
+
+1. Instala Ollama y define la variable de entorno `OLLAMA_CONTEXT_LENGTH=16384`. El contexto por defecto es corto y los agentes perderían sus instrucciones.
+2. Descarga un modelo con soporte de herramientas y otro de embeddings:
+   ```bash
+   ollama pull <modelo>
+   ollama pull bge-m3
+   ```
+3. Crea `.env` en la raíz del proyecto con `LLM_PROVIDER=ollama` y reinicia la API.
+4. En Ajustes elige el modelo potente, el rápido y los embeddings `ollama` / `bge-m3`. Si no eliges modelo, se usa el primero instalado.
+
+Si Ollama está apagado, el agente se pausa con el motivo y su tarea se retoma al reanudarlo. Un modelo sin soporte de herramientas hace fallar sus tareas: los agentes dependen de ellas.
+
+## Usar otros modelos
 
 Copia `.env.example` a `.env` y elige proveedor:
 

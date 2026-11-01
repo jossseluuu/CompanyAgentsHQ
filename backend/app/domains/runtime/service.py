@@ -27,7 +27,7 @@ from app.domains.tasks import service as tasks_service
 
 DAY_SECONDS = 86400
 HOUR_SECONDS = 3600
-LEASE_SECONDS = 300
+LEASE_SECONDS = 1800
 
 
 async def agent_profile(db: AsyncSession, agent: Any) -> dict[str, Any]:
@@ -189,6 +189,7 @@ async def status_bar(db: AsyncSession, company: Any) -> dict[str, Any]:
         "status": company.status,
         "spend_today_eur": today,
         "daily_limit_eur": float(company.daily_budget_eur),
+        "simulated": get_settings().llm_provider == "fake",
         "pending_approvals": await approvals_service.pending_count(db, company.id),
         "open_anomalies": await audit_service.open_anomaly_count(db, company.id),
     }

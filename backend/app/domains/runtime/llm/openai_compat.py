@@ -8,6 +8,9 @@ import httpx
 from app.domains.runtime.llm.base import LLMError, LLMRequest, LLMResponse, OnText, ToolCall
 
 
+MAX_OUTPUT_TOKENS = 4096
+
+
 def _messages(system: str, messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
     converted: list[dict[str, Any]] = [{"role": "system", "content": system}]
     for message in messages:
@@ -54,7 +57,7 @@ class OpenAICompatibleClient:
             "model": request.model,
             "messages": _messages(request.system, request.messages),
             "temperature": request.temperature,
-            "max_tokens": request.max_tokens,
+            "max_tokens": min(request.max_tokens, MAX_OUTPUT_TOKENS),
             "stream": True,
             "stream_options": {"include_usage": True},
         }
@@ -89,7 +92,7 @@ class OpenAICompatibleClient:
                                 slot["name"] = function.get("name") or slot["name"]
                                 slot["args"] += function.get("arguments") or ""
         except httpx.TransportError as exc:
-            raise LLMError(f"Sin conexión con el modelo local: {exc}", retryable=True) from exc
+            raise LLMError(f"Sin conexión con el modelo local: {exc!r}", retryable=True) from exc
         tool_calls = []
         for index, slot in sorted(calls.items()):
             try:
