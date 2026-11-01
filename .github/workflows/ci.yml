@@ -50,5 +50,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: pip install pip-audit && pip-audit ./backend || true
+      - run: pip install -U pip setuptools pip-audit && pip install -e ./backend
+      - run: pip-audit --skip-editable
       - run: npm audit --prefix frontend --audit-level=high
