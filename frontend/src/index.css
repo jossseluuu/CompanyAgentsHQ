@@ -48,6 +48,14 @@ body {
   font-family: "Segoe UI", system-ui, sans-serif;
 }
 
+.light .text-emerald-300 {
+  color: #047857;
+}
+
+.light .text-amber-300 {
+  color: #b45309;
+}
+
 :focus-visible {
   outline: 2px solid #6366f1;
   outline-offset: 2px;

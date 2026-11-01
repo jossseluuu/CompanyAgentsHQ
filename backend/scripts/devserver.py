@@ -10,7 +10,7 @@ from localdb import start
 BACKEND = Path(__file__).resolve().parents[1]
 database = os.environ.get("DEV_DATABASE", "companyagentshq")
 server = start(BACKEND / ".local" / "pgdata")
-if database not in server.psql("select datname from pg_database;"):
+if database not in server.psql("select datname from pg_database;").split():
     server.psql(f"create database {database};")
 port = server.get_uri().rsplit(":", 1)[1].split("/")[0]
 env = {

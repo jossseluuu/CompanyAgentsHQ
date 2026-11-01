@@ -143,7 +143,9 @@ function ChatTab({ agentId }: { agentId: string }) {
   const [text, setText] = useState("");
   const [error, setError] = useState<unknown>(null);
   const end = useRef<HTMLDivElement>(null);
-  useEffect(() => end.current?.scrollIntoView?.(), [data, stream]);
+  useEffect(() => {
+    end.current?.scrollIntoView?.();
+  }, [data, stream]);
   const send = async () => {
     if (!text.trim()) return;
     const content = text;

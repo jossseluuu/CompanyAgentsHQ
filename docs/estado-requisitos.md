@@ -28,22 +28,22 @@ Fue una sola pasada con una empresa de prueba: no mide la calidad de lo que escr
 
 | Módulo | Hecho | Pendiente o parcial |
 |---|---|---|
-| EMP | 01–05 | 06, 07, 08 (D) sin hacer; 09, 10 (F) |
+| EMP | 01–07 | 08 (D) sin hacer; 09, 10 (F) |
 | OFI | 01–09, 11, 13 | 10 (D) sin hacer; 12, 14 (F) |
-| SAL | 01–05, 09; 08 sin vista previa | 06 solo por API (D); 07 solo API de sala, sin modo edición (D); 10 (F) |
-| AGE | 01–11, 14 | 12 solo por API (D); 13 (D) |
+| SAL | 01–07, 09; 08 sin vista previa | 10 (F) |
+| AGE | 01–14 | |
 | FIC | 01–08 | 09, 10 (D) |
 | SUP | 01–09 | 10 (D) |
-| MOV | 01–05, 07, 08, 10 | 03 con animación por código; 06 solo por API (D); 09 (D) |
+| MOV | 01–08, 10 | 03 con animación por código; 09 (D) |
 | DES | 01–03 | 04 (D); 05 (F) |
 | ARC | 01–04, 08–10; 06 | 05 carpetas en API, sin interfaz (D); 07 (D) |
 | CON | 01–11, 13 | 12, 15 (D); 14 (F) |
-| TAR | 01–06, 08–11; 07 y 12 en API | Dependencias y recurrencia sin interfaz (D) |
+| TAR | 01–12 | |
 | APR | 01–03; 06 parcial | 04 (D); 05 (F) |
 | REU | 01–04 | 02: los agentes reciben estado de reunión; 05 (F) |
 | FIN | 01–04, 06; 05; 07 CSV | 07 PDF (D) |
 | AUD | 01–07, 09, 11 | 08: informe diario en vez de semanal; 10, 13 (D); 12 (F) |
-| OTR | 01, 06, 07; 03 no | 02, 03, 04, 05 (D); 08, 09, 10 (F) |
+| OTR | 01–03, 06, 07 | 04, 05 (D); 08, 09, 10 (F) |
 
 ## No funcionales
 
@@ -83,4 +83,4 @@ Fue una sola pasada con una empresa de prueba: no mide la calidad de lo que escr
 - Repositorio en GitHub, issues, milestones y project board: no hay `gh` ni autorización.
 - GIF y vídeo de demo: el README usa una captura.
 - Cliente de API generado desde OpenAPI: es escrito a mano.
-- Modelos glTF: muebles y personajes usan primitivas (ADR 0002).
+- Modelos glTF: descartados, el estilo de bloques se genera por código (ADR 0002).
