@@ -2,18 +2,16 @@ import uuid
 from typing import Annotated, Any
 from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, Query, Response, UploadFile
+from fastapi import APIRouter, Query, Response, UploadFile
 from pydantic import BaseModel
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.db import get_db
+from app.core.db import Db
 from app.core.util import row, rows
 from app.domains.company.service import CompanyDep
 from app.domains.files import service
 from app.domains.office import service as office_service
 
 router = APIRouter(tags=["files"])
-Db = Annotated[AsyncSession, Depends(get_db)]
 EXCLUDE = ("text_content", "storage_key")
 
 

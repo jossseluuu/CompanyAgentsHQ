@@ -11,7 +11,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.core.db import get_db, utcnow
+from app.core.db import Db, utcnow
 from app.core.errors import AppError
 from app.core.models import AuthSession, Owner
 
@@ -20,7 +20,6 @@ CSRF_COOKIE = "cahq_csrf"
 _hasher = PasswordHasher()
 
 router = APIRouter(prefix="/auth", tags=["auth"])
-Db = Annotated[AsyncSession, Depends(get_db)]
 
 
 class Credentials(BaseModel):

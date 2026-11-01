@@ -4,11 +4,9 @@ import sys
 import time
 from pathlib import Path
 
-import pgserver
+from localdb import start
 
-data = Path(__file__).resolve().parents[1] / ".local" / "pgdata"
-data.parent.mkdir(exist_ok=True)
-server = pgserver.get_server(data, cleanup_mode=None)
+server = start(Path(__file__).resolve().parents[1] / ".local" / "pgdata")
 names = [a for a in sys.argv[1:] if not a.startswith("--")] or ["companyagentshq"]
 for name in names:
     if name not in server.psql("select datname from pg_database;"):

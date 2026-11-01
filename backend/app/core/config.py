@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     openai_base_url: str = "http://localhost:1234/v1"
     openai_api_key: str = ""
     ollama_url: str = "http://localhost:11434"
+    local_llm_concurrency: int = 1
     model_powerful: str = "claude-opus-5-5"
     model_fast: str = "claude-haiku-5-5"
     usd_to_eur: float = 0.92

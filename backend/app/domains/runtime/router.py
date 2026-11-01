@@ -1,10 +1,9 @@
-from typing import Annotated, Any
+from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 from pydantic import BaseModel, Field
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.db import get_db
+from app.core.db import Db
 from app.domains.agents import service as agents_service
 from app.domains.company.service import CompanyDep
 from app.domains.files import service as files_service
@@ -13,7 +12,6 @@ from app.domains.runtime import service
 from app.domains.tasks import service as tasks_service
 
 router = APIRouter(tags=["search"])
-Db = Annotated[AsyncSession, Depends(get_db)]
 
 
 class SearchIn(BaseModel):

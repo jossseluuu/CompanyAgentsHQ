@@ -1,13 +1,12 @@
 from datetime import datetime
 from decimal import Decimal
-from typing import Annotated, Any
+from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 from pydantic import BaseModel, Field
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import CurrentOwner
-from app.core.db import get_db
+from app.core.db import Db
 from app.core.util import row
 from app.domains.company import service
 from app.domains.company.service import CompanyDep
@@ -15,7 +14,6 @@ from app.domains.finance import service as finance_service
 from app.domains.runtime import service as runtime_service
 
 router = APIRouter(prefix="/company", tags=["company"])
-Db = Annotated[AsyncSession, Depends(get_db)]
 
 
 class CompanyIn(BaseModel):

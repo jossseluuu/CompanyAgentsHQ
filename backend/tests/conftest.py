@@ -5,11 +5,12 @@ import tempfile
 from collections.abc import AsyncIterator
 from pathlib import Path
 
-import pgserver
 import pytest
 
+from scripts.localdb import start
+
 BACKEND = Path(__file__).resolve().parents[1]
-_server = pgserver.get_server(BACKEND / ".local" / "pgdata", cleanup_mode=None)
+_server = start(BACKEND / ".local" / "pgdata")
 _port = _server.get_uri().rsplit(":", 1)[1].split("/")[0]
 os.environ.update(
     APP_ENV="test",
@@ -20,6 +21,7 @@ os.environ.update(
     STORAGE_DIR=tempfile.mkdtemp(prefix="cahq-test-"),
     LLM_PROVIDER="fake",
     EMBEDDINGS_PROVIDER="hash",
+    OLLAMA_URL="http://127.0.0.1:9",  # las pruebas no deben depender de un Ollama en marcha
     WALK_SECONDS_PER_TILE="0",
     LOG_LEVEL="WARNING",
 )

@@ -1,11 +1,10 @@
 import uuid
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Form, UploadFile
+from fastapi import APIRouter, Form, UploadFile
 from pydantic import BaseModel, Field
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.db import get_db
+from app.core.db import Db
 from app.core.errors import AppError
 from app.core.util import row
 from app.domains.company.service import CompanyDep
@@ -14,7 +13,6 @@ from app.domains.knowledge import service
 from app.domains.runtime import service as runtime_service
 
 router = APIRouter(prefix="/knowledge-bases", tags=["knowledge"])
-Db = Annotated[AsyncSession, Depends(get_db)]
 
 
 class BaseIn(BaseModel):

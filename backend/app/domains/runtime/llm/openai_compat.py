@@ -1,13 +1,16 @@
 """Modelos locales: Ollama, LM Studio, llama.cpp o cualquier servidor con /v1/chat/completions."""
 
+import asyncio
 import json
 from typing import Any
 
 import httpx
 
+from app.core.config import get_settings
 from app.domains.runtime.llm.base import LLMError, LLMRequest, LLMResponse, OnText, ToolCall
 
 MAX_OUTPUT_TOKENS = 4096
+_turns = asyncio.Semaphore(get_settings().local_llm_concurrency)  # una GPU: las llamadas esperan aquí, no en el servidor
 
 
 def _messages(system: str, messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -52,6 +55,10 @@ class OpenAICompatibleClient:
         self.headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
 
     async def complete(self, request: LLMRequest, on_text: OnText = None) -> LLMResponse:
+        async with _turns:
+            return await self._complete(request, on_text)
+
+    async def _complete(self, request: LLMRequest, on_text: OnText) -> LLMResponse:
         body: dict[str, Any] = {
             "model": request.model,
             "messages": _messages(request.system, request.messages),
@@ -72,7 +79,9 @@ class OpenAICompatibleClient:
                 ) as response:
                     if response.status_code >= 400:
                         detail = (await response.aread()).decode(errors="replace")[:300]
-                        raise LLMError(f"Error {response.status_code}: {detail}", response.status_code >= 500)
+                        # 404: modelo no disponible ahora; el agente se pausa, la tarea no se pierde.
+                        retryable = response.status_code >= 500 or response.status_code == 404
+                        raise LLMError(f"Error {response.status_code}: {detail}", retryable)
                     async for line in response.aiter_lines():
                         if not line.startswith("data: ") or line.endswith("[DONE]"):
                             continue

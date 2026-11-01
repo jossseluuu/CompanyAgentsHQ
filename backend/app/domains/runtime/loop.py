@@ -12,10 +12,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core import plugins
 from app.core.config import get_settings
 from app.core.db import session_scope, utcnow
-from app.core.errors import AppError
+from app.core.errors import AppError, EmbeddingsDown
 from app.core.events import emit, emit_now
 from app.core.plugins import ToolContext
-from app.core.util import as_uuid, row
+from app.core.util import as_uuid, normalize_citations, row
 from app.domains.agents import service as agents_service
 from app.domains.approvals import service as approvals_service
 from app.domains.audit import anomalies
@@ -418,6 +418,7 @@ async def _finish(db: AsyncSession, task: Any, agent: Any, text: str, had_source
         await tasks_service.set_status(db, task, "blocked", blocked_reason="children")
         await release_and_next(db, agent)
         return
+    text = normalize_citations(text)
     task.result_text = text
     room_id = task.room_id or agent.home_room_id
     file = await files_service.create(
@@ -493,7 +494,16 @@ async def _check_goal(db: AsyncSession, task: Any) -> None:
 @job
 async def run_task(task_id: str) -> None:
     identifier = as_uuid(task_id)
-    if await _start(identifier) == "stop":
+    try:
+        started = await _start(identifier)
+    except EmbeddingsDown as exc:
+        async with session_scope() as db:
+            task = await tasks_service.find_task(db, identifier)
+            assert task is not None
+            agent = await agents_service.require(db, task.assigned_agent_id)
+            await _hold(db, task, agent, "provider", exc.message)
+        return
+    if started == "stop":
         return
     while await _advance(identifier) == "continue":
         pass
@@ -504,22 +514,29 @@ async def plan_goal(goal_id: str) -> None:
     identifier = as_uuid(goal_id)
     from app.domains.company import service as company_service
 
-    async with session_scope() as db:
-        goal = await tasks_service.get_goal_any(db, identifier)
-        ceo = await agents_service.by_role(db, goal.company_id, "ceo")
-        if ceo is None:
+    try:
+        async with session_scope() as db:
+            goal = await tasks_service.get_goal_any(db, identifier)
+            ceo = await agents_service.by_role(db, goal.company_id, "ceo")
+            if ceo is None:
+                await tasks_service.set_goal_status(db, goal, "failed")
+                return
+            company = await company_service.get(db, goal.company_id)
+            teams = [f"{a.role} ({a.name})" for a in await agents_service.subordinates(db, ceo.id)]
+            fragments = await knowledge_service.retrieve_for_agent(db, ceo, f"{goal.title}\n{goal.description}")
+            prompt = (
+                f"El dueño de {company.name} te da este objetivo.\nTítulo: {goal.title}\n"
+                f"Descripción: {goal.description}\nTu equipo directo: {', '.join(teams)}.\n"
+                f"{retriever.render(fragments)}\nUsa propose_plan: reparte el trabajo en tareas, una por responsable."
+            )
+            ceo_id = ceo.id
+            await agents_service.set_status(db, ceo, "thinking")
+    except EmbeddingsDown as exc:
+        async with session_scope() as db:
+            goal = await tasks_service.get_goal_any(db, identifier)
             await tasks_service.set_goal_status(db, goal, "failed")
-            return
-        company = await company_service.get(db, goal.company_id)
-        teams = [f"{a.role} ({a.name})" for a in await agents_service.subordinates(db, ceo.id)]
-        fragments = await knowledge_service.retrieve_for_agent(db, ceo, f"{goal.title}\n{goal.description}")
-        prompt = (
-            f"El dueño de {company.name} te da este objetivo.\nTítulo: {goal.title}\n"
-            f"Descripción: {goal.description}\nTu equipo directo: {', '.join(teams)}.\n"
-            f"{retriever.render(fragments)}\nUsa propose_plan: reparte el trabajo en tareas, una por responsable."
-        )
-        ceo_id = ceo.id
-        await agents_service.set_status(db, ceo, "thinking")
+            await audit_service.notify(db, goal.company_id, "goal", f"No se pudo planificar: {exc.message}", "/goals")
+        return
     messages = [_user(prompt)]
     try:
         asked = await ask(ceo_id, "plan", messages, tools=[PROPOSE_PLAN], fragments=fragments)
@@ -685,7 +702,12 @@ async def chat_reply(agent_id: str, message_id: str) -> None:
         assert agent is not None
         history = await agents_service.messages(db, identifier, 20)
         question = history[-1].content if history else ""
-        fragments = await knowledge_service.retrieve_for_agent(db, agent, question)
+        try:
+            fragments = await knowledge_service.retrieve_for_agent(db, agent, question)
+        except EmbeddingsDown as exc:
+            saved = await agents_service.add_message(db, identifier, "agent", f"No puedo responder ahora: {exc.message}")
+            await emit(db, "agent.message_done", {"agent_id": identifier, "message": row(saved), "stream_id": reply_id})
+            return
         tools = await context.allowed_tools(db, agent)
         tools = {k: v for k, v in tools.items() if k in CHAT_TOOLS}
         was_busy = agent.current_task_id is not None
@@ -732,6 +754,7 @@ async def chat_reply(agent_id: str, message_id: str) -> None:
             messages.append({"role": "user", "content": results})
     except (BudgetBlocked, ProviderDown, LLMError) as exc:
         text = f"No puedo responder ahora: {exc}"
+    text = normalize_citations(text)
     numbers = {int(n) for n in re.findall(r"\[(\d+)\]", text)}
     citations = [f.citation(i) for i, f in enumerate(fragments, start=1) if i in numbers]
     async with session_scope() as db:

@@ -2,8 +2,9 @@ import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
-from typing import Any
+from typing import Annotated, Any
 
+from fastapi import Depends
 from sqlalchemy import DateTime
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
@@ -89,3 +90,7 @@ async def session_scope() -> AsyncIterator[AsyncSession]:
 async def get_db() -> AsyncIterator[AsyncSession]:
     async with session_scope() as db:
         yield db
+
+
+# scope="function": el commit ocurre antes de responder; si no, un cliente rápido no ve lo que acaba de escribir.
+Db = Annotated[AsyncSession, Depends(get_db, scope="function")]

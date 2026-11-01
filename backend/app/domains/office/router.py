@@ -1,17 +1,15 @@
 import uuid
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.db import get_db
+from app.core.db import Db
 from app.core.util import row
 from app.domains.company.service import CompanyDep
 from app.domains.office import service
 
 router = APIRouter(tags=["office"])
-Db = Annotated[AsyncSession, Depends(get_db)]
 
 
 class RoomIn(BaseModel):

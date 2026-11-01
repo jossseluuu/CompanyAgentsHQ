@@ -4,16 +4,14 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query, Response
 from pydantic import BaseModel
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import CurrentOwner
-from app.core.db import get_db
+from app.core.db import Db
 from app.core.util import row, rows
 from app.domains.audit import service
 from app.domains.company.service import CompanyDep
 
 router = APIRouter(tags=["audit"])
-Db = Annotated[AsyncSession, Depends(get_db)]
 
 
 class AnomalyPatch(BaseModel):

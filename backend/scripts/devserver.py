@@ -5,12 +5,11 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pgserver
+from localdb import start
 
 BACKEND = Path(__file__).resolve().parents[1]
 database = os.environ.get("DEV_DATABASE", "companyagentshq")
-(BACKEND / ".local").mkdir(exist_ok=True)
-server = pgserver.get_server(BACKEND / ".local" / "pgdata", cleanup_mode=None)
+server = start(BACKEND / ".local" / "pgdata")
 if database not in server.psql("select datname from pg_database;"):
     server.psql(f"create database {database};")
 port = server.get_uri().rsplit(":", 1)[1].split("/")[0]

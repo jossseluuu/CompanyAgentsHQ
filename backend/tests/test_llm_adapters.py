@@ -1,5 +1,7 @@
+
 """Adaptadores reales contra servidores simulados: ninguna prueba sale a internet."""
 
+import asyncio
 import json
 
 import anthropic
@@ -176,6 +178,57 @@ async def test_ollama_down_pauses_the_agent_instead_of_failing(api, monkeypatch:
     agent = await api.get(f"/agents/{task['assigned_agent_id']}")
     assert agent["status"] == "paused" and "ollama pull" in agent["pause_reason"]
     assert (await api.get(f"/tasks/{task['id']}"))["blocked_reason"] == "provider"
+
+
+async def test_missing_model_pauses_the_agent_instead_of_failing(api, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Ollama responde 404 si cambia su carpeta de modelos en plena tarea."""
+    from tests.conftest import agent_id, settle
+
+    monkeypatch.setattr(get_settings(), "llm_provider", "ollama")
+    await api.patch("/company/ai", {"powerful_model": "qwen3:8b", "fast_model": "qwen3:8b"})
+    _patch_httpx(monkeypatch, lambda _: httpx.Response(404, json={"error": {"message": "model 'qwen3:8b' not found"}}))
+    task = await api.post("/tasks", {"title": "T", "agent_id": await agent_id(api, "redactor")})
+    await settle()
+    found = await api.get(f"/tasks/{task['id']}")
+    assert found["status"] == "blocked" and found["blocked_reason"] == "provider"
+    agent = await api.get(f"/agents/{task['assigned_agent_id']}")
+    assert agent["status"] == "paused" and "not found" in agent["pause_reason"]
+
+
+async def test_embeddings_down_holds_the_task_and_answers_the_chat(api) -> None:
+    """Sin esto el trabajo moría sin aviso: tarea pendiente para siempre y mensaje sin respuesta."""
+    from tests.conftest import agent_id, settle
+
+    await api.patch("/company/ai", {"embeddings_provider": "ollama", "embedding_model": "bge-m3"})
+    await settle()
+    cfo = await agent_id(api, "cfo")
+    await api.post(f"/agents/{cfo}/messages", {"content": "¿Cuánto gastamos?"})
+    await settle()
+    assert "embeddings" in (await api.get(f"/agents/{cfo}/messages"))[-1]["content"]
+    task = await api.post("/tasks", {"title": "T", "agent_id": await agent_id(api, "redactor")})
+    await settle()
+    found = await api.get(f"/tasks/{task['id']}")
+    assert found["status"] == "blocked" and found["blocked_reason"] == "provider"
+    assert "embeddings" in (await api.get(f"/agents/{task['assigned_agent_id']}"))["pause_reason"]
+    goal = await api.post("/goals", {"title": "G", "description": "D"})
+    await settle()
+    assert (await api.get(f"/goals/{goal['id']}"))["status"] == "failed"
+
+
+async def test_local_calls_run_one_at_a_time(monkeypatch: pytest.MonkeyPatch) -> None:
+    active, peak = 0, 0
+
+    async def slow(self, request, on_text):  # type: ignore[no-untyped-def]
+        nonlocal active, peak
+        active += 1
+        peak = max(peak, active)
+        await asyncio.sleep(0)
+        active -= 1
+
+    monkeypatch.setattr(openai_compat.OpenAICompatibleClient, "_complete", slow)
+    client = openai_compat.OpenAICompatibleClient("http://x")
+    await asyncio.gather(*(client.complete(LLMRequest("m", "", [], [], 0.2)) for _ in range(4)))
+    assert peak == 1
 
 
 async def test_ollama_embeddings(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -18,7 +18,8 @@ Sin Docker (Windows, macOS o Linux, con Python 3.12 y Node 22):
 
 ```bash
 cd backend
-python -m venv .venv
+python --version                          # debe ser 3.12 o superior; si no, usa la ruta de ese Python
+python -m venv .venv                      # solo la primera vez: repetirlo con otra versión rompe el entorno
 .venv/Scripts/pip install -e ".[dev]"     # en macOS y Linux: .venv/bin/pip
 .venv/Scripts/python scripts/devserver.py
 

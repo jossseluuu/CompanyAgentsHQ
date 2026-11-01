@@ -1,3 +1,5 @@
+from app.core.util import normalize_citations
+from app.domains.runtime.llm.base import LLMResponse
 from app.domains.runtime.llm.router import fake
 from tests.conftest import Api, agent_id, room_id, settle
 
@@ -63,6 +65,26 @@ async def test_cfo_answers_citing_a_document(api: Api) -> None:
     assert messages[-1]["role"] == "agent"
     assert "[1]" in messages[-1]["content"]
     assert messages[-1]["citations"][0]["document"] == "politica.md"
+
+
+async def test_citation_written_as_the_model_writes_it_still_counts(api: Api) -> None:
+    """qwen3 copia el atributo de la etiqueta y responde [n=1]."""
+    base = await base_of(api, "room", "Finanzas")
+    await add_text(api, base, "politica.md", POLICY)
+    cfo = await agent_id(api, "cfo")
+    fake.push(LLMResponse("Son 12.000 euros [n=1].", [], [{"type": "text", "text": "Son 12.000 euros [n=1]."}], 1, 1, "fake"))
+    await api.post(f"/agents/{cfo}/messages", {"content": "¿Cuál es el presupuesto de publicidad?"})
+    await settle()
+    message = (await api.get(f"/agents/{cfo}/messages"))[-1]
+    assert message["content"] == "Son 12.000 euros [1]."
+    assert message["citations"][0]["document"] == "politica.md"
+
+
+def test_normalize_citations_leaves_ordinary_text_alone() -> None:
+    assert normalize_citations("Dato [n=1], [fragmento 2] y [3, 4].") == "Dato [1], [2] y [3][4]."
+    assert normalize_citations("[enlace](http://a.b) y [1](http://c.d) y lista[0x]") == (
+        "[enlace](http://a.b) y [1](http://c.d) y lista[0x]"
+    )
 
 
 async def test_agent_does_not_read_bases_without_permission(api: Api) -> None:

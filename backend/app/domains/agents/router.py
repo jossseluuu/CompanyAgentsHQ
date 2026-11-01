@@ -1,19 +1,17 @@
 import uuid
 from decimal import Decimal
-from typing import Annotated, Any
+from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 from pydantic import BaseModel, Field
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.db import get_db
+from app.core.db import Db
 from app.core.util import row, rows
 from app.domains.agents import service
 from app.domains.company.service import CompanyDep
 from app.domains.runtime import service as runtime_service
 
 router = APIRouter(tags=["agents"])
-Db = Annotated[AsyncSession, Depends(get_db)]
 
 
 class AgentIn(BaseModel):

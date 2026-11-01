@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 import sys
 import uuid
 from datetime import datetime
@@ -7,6 +8,9 @@ from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import inspect
+
+_MARK = r"(?:(?:n|fragmento|fuente)\s*[=:]?\s*)?\d+"
+_CITATION = re.compile(rf"\[\s*{_MARK}(?:\s*[,;]\s*{_MARK})*\s*\](?!\()", re.IGNORECASE)
 
 
 def row(obj: Any, *exclude: str) -> dict[str, Any]:
@@ -28,6 +32,15 @@ def rows(items: Any, *exclude: str) -> list[dict[str, Any]]:
 
 def as_uuid(value: Any) -> uuid.UUID:
     return value if isinstance(value, uuid.UUID) else uuid.UUID(str(value))
+
+
+def normalize_citations(text: str) -> str:
+    """Los modelos pequeños escriben [n=1], [fragmento 1] o [1, 2]: todo queda como [1][2]."""
+
+    def rewrite(match: re.Match[str]) -> str:
+        return "".join(f"[{number}]" for number in re.findall(r"\d+", match.group()))
+
+    return _CITATION.sub(rewrite, text)
 
 
 class JsonFormatter(logging.Formatter):

@@ -1,12 +1,11 @@
 import uuid
 from datetime import datetime
-from typing import Annotated, Any
+from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 from pydantic import BaseModel, Field
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.db import get_db
+from app.core.db import Db
 from app.core.util import row, rows
 from app.domains.approvals import service as approvals_service
 from app.domains.company.service import CompanyDep
@@ -16,7 +15,6 @@ from app.domains.tasks import service
 from app.domains.tasks.service import PUBLIC_EXCLUDE
 
 router = APIRouter(tags=["tasks"])
-Db = Annotated[AsyncSession, Depends(get_db)]
 
 
 class GoalIn(BaseModel):

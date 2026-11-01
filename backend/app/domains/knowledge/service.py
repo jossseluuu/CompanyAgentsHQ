@@ -2,13 +2,14 @@ import hashlib
 import uuid
 from typing import Any
 
+import httpx
 from sqlalchemy import delete, func, select, text
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import plugins
 from app.core.db import utcnow
-from app.core.errors import AppError, NotFound
+from app.core.errors import AppError, EmbeddingsDown, NotFound
 from app.core.events import emit
 from app.core.util import row
 from app.domains.audit import service as audit_service
@@ -181,7 +182,10 @@ async def _embed_cached(db: AsyncSession, embedder: EmbeddingProvider, texts: li
     missing = sorted({i for i, k in enumerate(keys) if k not in known})
     for start in range(0, len(missing), EMBED_BATCH):
         batch = missing[start : start + EMBED_BATCH]
-        vectors = await embedder.embed([texts[i] for i in batch])
+        try:
+            vectors = await embedder.embed([texts[i] for i in batch])
+        except httpx.HTTPError as exc:
+            raise EmbeddingsDown(repr(exc)) from exc
         for index, vector in zip(batch, vectors, strict=True):
             known[keys[index]] = fit(vector)
     if missing:

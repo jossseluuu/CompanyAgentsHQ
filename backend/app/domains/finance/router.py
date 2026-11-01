@@ -1,19 +1,17 @@
 from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Annotated, Any
+from typing import Any
 
-from fastapi import APIRouter, Depends, Response, UploadFile
+from fastapi import APIRouter, Response, UploadFile
 from pydantic import BaseModel, Field
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.db import get_db
+from app.core.db import Db
 from app.core.util import row, rows
 from app.domains.audit import service as audit_service
 from app.domains.company.service import CompanyDep
 from app.domains.finance import service
 
 router = APIRouter(tags=["finance"])
-Db = Annotated[AsyncSession, Depends(get_db)]
 
 
 class BudgetIn(BaseModel):

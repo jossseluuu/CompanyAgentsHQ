@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import CurrentOwner
 from app.core.config import BACKEND_DIR
-from app.core.db import get_db
+from app.core.db import Db
 from app.core.errors import AppError
 from app.core.events import emit
 from app.core.util import row, rows
@@ -40,7 +40,7 @@ async def company_of(db: AsyncSession, owner_id: uuid.UUID) -> Company | None:
     return (await db.execute(stmt)).scalars().first()
 
 
-async def require_company(owner: CurrentOwner, db: Annotated[AsyncSession, Depends(get_db)]) -> Company:
+async def require_company(owner: CurrentOwner, db: Db) -> Company:
     company = await company_of(db, owner.id)
     if company is None:
         raise AppError("no_company", "Crea primero la empresa", 409)

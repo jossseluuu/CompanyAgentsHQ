@@ -17,6 +17,11 @@ class NotFound(AppError):
         super().__init__("not_found", f"{what} no encontrado", 404)
 
 
+class EmbeddingsDown(AppError):
+    def __init__(self, detail: str) -> None:
+        super().__init__("embeddings_down", f"Servicio de embeddings no disponible: {detail}", 503)
+
+
 def _body(code: str, message: str, status: int) -> JSONResponse:
     return JSONResponse({"error": {"code": code, "message": message}}, status_code=status)
 
