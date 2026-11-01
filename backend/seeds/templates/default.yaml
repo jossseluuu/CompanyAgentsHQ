@@ -1,0 +1,87 @@
+departments:
+  - { name: Dirección, color: "#6366f1" }
+  - { name: Marketing, color: "#ec4899" }
+  - { name: Tecnología, color: "#0ea5e9" }
+  - { name: Finanzas, color: "#10b981" }
+  - { name: Control, color: "#f59e0b" }
+
+rooms:
+  - { name: Despacho CEO, slug: despacho-ceo, x: 1, y: 1, w: 9, h: 8, color: "#c7d2fe", doors: [[4, 7]], modules: [task_board, knowledge_base, owner_inbox] }
+  - { name: Marketing, slug: marketing, x: 11, y: 1, w: 11, h: 8, color: "#fbcfe8", doors: [[5, 7]], modules: [filing_cabinet, task_board, knowledge_base, whiteboard] }
+  - { name: Tecnología, slug: tecnologia, x: 23, y: 1, w: 11, h: 8, color: "#bae6fd", doors: [[5, 7]], modules: [filing_cabinet, task_board, knowledge_base] }
+  - { name: Archivo central, slug: archivo-central, x: 1, y: 11, w: 9, h: 8, color: "#e2e8f0", doors: [[4, 0]], modules: [filing_cabinet, knowledge_base] }
+  - { name: Sala de juntas, slug: sala-juntas, x: 11, y: 11, w: 11, h: 8, color: "#ddd6fe", doors: [[5, 0]], modules: [meeting_table, whiteboard] }
+  - { name: Finanzas, slug: finanzas, x: 23, y: 11, w: 11, h: 8, color: "#a7f3d0", doors: [[5, 0]], modules: [finance_dashboard, filing_cabinet, task_board, knowledge_base] }
+  - { name: Sala de control, slug: sala-control, x: 1, y: 21, w: 9, h: 7, color: "#fde68a", doors: [[4, 0]], restricted: true, modules: [audit_panel, cost_monitor] }
+  - { name: Sala de descanso, slug: sala-descanso, x: 11, y: 21, w: 23, h: 7, color: "#fed7aa", doors: [[11, 0]], modules: [break_area] }
+
+agents:
+  - key: ceo
+    name: Ada
+    room: despacho-ceo
+    department: Dirección
+    head: true
+    model: powerful
+    budget: 1.0
+    desk: [4, 3]
+    tools: [delegate_task, search_knowledge, create_task, update_task, request_approval, web_search]
+  - key: chief_of_staff
+    name: Bruno
+    room: archivo-central
+    department: Dirección
+    manager: ceo
+    model: fast
+    desk: [4, 3]
+    tools: [search_files, read_file, write_file, search_knowledge, ask_manager, delete_file, request_approval]
+  - key: cmo
+    name: Carla
+    room: marketing
+    department: Marketing
+    head: true
+    manager: ceo
+    model: fast
+    desk: [3, 3]
+    tools: [delegate_task, search_files, read_file, write_file, search_knowledge, create_task, update_task, ask_manager, web_search, write_whiteboard, request_approval]
+  - key: redactor
+    name: Diego
+    room: marketing
+    department: Marketing
+    manager: cmo
+    model: fast
+    desk: [7, 3]
+    tools: [search_files, read_file, write_file, search_knowledge, ask_manager, web_search, write_whiteboard]
+  - key: cto
+    name: Elena
+    room: tecnologia
+    department: Tecnología
+    head: true
+    manager: ceo
+    model: fast
+    desk: [3, 3]
+    tools: [delegate_task, search_files, read_file, write_file, search_knowledge, create_task, update_task, ask_manager, web_search, request_approval]
+  - key: desarrollador
+    name: Fabio
+    room: tecnologia
+    department: Tecnología
+    manager: cto
+    model: fast
+    desk: [7, 3]
+    tools: [search_files, read_file, write_file, search_knowledge, ask_manager, web_search]
+  - key: cfo
+    name: Gloria
+    room: finanzas
+    department: Finanzas
+    head: true
+    manager: ceo
+    model: fast
+    desk: [5, 3]
+    tools: [read_finance, create_budget, search_files, read_file, write_file, search_knowledge, create_task, update_task, ask_manager, spend_budget, request_approval]
+  - key: auditor
+    name: Hugo
+    room: sala-control
+    department: Control
+    head: true
+    model: fast
+    desk: [4, 3]
+    tools: [read_audit, search_knowledge]
+    supervises_all: true

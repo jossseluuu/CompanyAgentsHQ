@@ -1,0 +1,47 @@
+# Guiones del LLM falso. Clave: <tipo>.<rol> o <tipo>. Cada entrada es un paso; el último se repite.
+plan:
+  - tool: propose_plan
+    input:
+      summary: "Reparto el objetivo «{title}» entre Marketing, Tecnología y Finanzas."
+      tasks:
+        - role: cmo
+          title: Plan de contenidos
+          instructions: Prepara el plan de contenidos del objetivo con ayuda del Redactor.
+        - role: cto
+          title: Especificación técnica
+          instructions: Redacta la especificación técnica necesaria para el objetivo.
+        - role: cfo
+          title: Presupuesto
+          instructions: Elabora el presupuesto del objetivo citando las cifras.
+task.cmo:
+  - tool: delegate_task
+    input: { to_role: redactor, title: "Borrador para {title}", instructions: "Redacta un borrador de {title}." }
+  - text: "Delego el borrador en el Redactor y espero su entrega."
+  - text: "# {title}\n\nEntrega del departamento de Marketing basada en el borrador del Redactor."
+task.cto:
+  - tool: delegate_task
+    input: { to_role: desarrollador, title: "Prototipo para {title}", instructions: "Prepara un ejemplo para {title}." }
+  - text: "Delego el prototipo en el Desarrollador."
+  - text: "# {title}\n\nEspecificación técnica revisada con el prototipo del Desarrollador."
+task.cfo:
+  - tool: read_finance
+    input: {}
+  - text: "# {title}\n\nPresupuesto propuesto con cifras tomadas del dashboard financiero. {citation}"
+task:
+  - text: "# {title}\n\nEntrega simulada de {role}. {citation}"
+review:
+  - tool: review_decision
+    input: { accept: true, comments: "Cumple lo pedido." }
+decide:
+  - tool: decide
+    input: { approve: true, comment: "De acuerdo." }
+chat:
+  - text: "Según lo que consta en nuestra documentación: {fragment} {citation}"
+consolidate:
+  - text: "Resumen de mis últimas tareas: entregas completadas y aceptadas."
+meeting:
+  - text: "Propongo avanzar con {title} y revisar el resultado la próxima semana."
+minutes:
+  - text: "Se acuerda avanzar con {title}. Próximo paso: revisar el resultado."
+audit_report:
+  - text: "# Informe de auditoría\n\nSin riesgos relevantes en la muestra revisada."
