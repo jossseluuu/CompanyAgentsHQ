@@ -39,6 +39,7 @@ dev = [
   "types-redis",
   "boto3-stubs",
   "pgserver>=0.1.4",
+  "psutil>=5.9",
   "moto[s3]>=5.0",
 ]
 
