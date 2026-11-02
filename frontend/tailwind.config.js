@@ -2,6 +2,8 @@ export default {
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
+      fontFamily: { sans: ["Inter Variable", "Segoe UI", "system-ui", "sans-serif"], pixel: ["Pixelify Sans", "monospace"] },
+      borderRadius: { DEFAULT: "0.5rem" },
       colors: {
         // La paleta entera sale de variables: el tema claro solo las redefine (RF-OTR-03).
         ink: {

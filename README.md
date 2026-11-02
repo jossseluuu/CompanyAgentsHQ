@@ -73,6 +73,7 @@ En Organigrama puedes contratar 21 cargos directivos repartidos en seis áreas, 
 ## Oficina y empresa
 
 - **Editar la oficina:** en Oficina, pulsa «Editar oficina» para crear, mover, redimensionar y borrar salas y colocar muebles. La app rechaza los solapes y lo que deje a un agente sin paso.
+- **Gestionar:** en Organigrama, los departamentos; en la ficha de cada agente, nombre, jefe, departamento, presupuesto, herramientas, modelo, rutina y prompt; en Tareas, reasignar, priorizar, cancelar y reintentar; en Conocimiento, permisos por agente. El editor de la oficina también añade y quita muebles, coloca la puerta y restringe salas.
 - **Copia de seguridad:** en Ajustes, «Exportar empresa» descarga un ZIP con configuración, historial y ficheros. Se restaura al crear la empresa en una instalación nueva. El conocimiento se reindexa y las tareas en curso quedan bloqueadas para que decidas.
 - **Idioma y tema:** español o inglés y tema oscuro o claro, en Ajustes. Cambiar el idioma también cambia el de los agentes; los nombres de las salas y los agentes ya creados no se traducen.
 

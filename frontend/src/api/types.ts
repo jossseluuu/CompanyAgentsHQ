@@ -52,6 +52,7 @@ export interface FurnitureItem {
 }
 
 export interface Room {
+  restricted?: boolean;
   id: string;
   name: string;
   slug: string;
@@ -72,6 +73,8 @@ export interface Department {
 }
 
 export interface Snapshot {
+  sector?: string;
+  timezone?: string;
   id: string;
   name: string;
   mission: string;

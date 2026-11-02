@@ -7,17 +7,16 @@ import { useOffice } from "@/store/office";
 
 import { AgentAvatar } from "./AgentAvatar";
 import { poseAt } from "./pathAnimator";
-import { grassTexture } from "./pixelTextures";
+import { Grounds } from "./Grounds";
 import { RoomMesh } from "./RoomMesh";
 import { t } from "@/shared/i18n";
 
-const ZOOMS = [14, 22, 34];
+const ZOOMS = [1, 1.5, 2.2];
 const DISTANCE = 60;
 const ELEVATION = THREE.MathUtils.degToRad(35);
-const GROUND = 240;
 
-/** El tamaño depende del alto: abrir un panel lateral no encoge la oficina. */
-const fitScale = (width: number, height: number) => Math.max(Math.min(width / 700, height / 620), 0.7);
+/** El nivel base encuadra la oficina entera: crece con ella y no depende de los paneles abiertos. */
+const fitZoom = (width: number, height: number, span: number) => Math.max(Math.min(width / (span * 0.76), height / (span * 0.5)), 8);
 
 interface View {
   target: THREE.Vector3;
@@ -25,7 +24,7 @@ interface View {
   zoomLevel: number;
 }
 
-function CameraRig({ view, picker }: { view: MutableRefObject<View>; picker: MutableRefObject<ScreenToGrid | null> }) {
+function CameraRig({ view, picker, span }: { view: MutableRefObject<View>; picker: MutableRefObject<ScreenToGrid | null>; span: number }) {
   const { camera, size } = useThree();
   const follow = useOffice((s) => s.followAgentId);
   const azimuth = useRef(Math.PI / 4);
@@ -65,7 +64,7 @@ function CameraRig({ view, picker }: { view: MutableRefObject<View>; picker: Mut
     );
     camera.lookAt(target);
     const zoom = (camera as THREE.OrthographicCamera).zoom;
-    const wantedZoom = ZOOMS[view.current.zoomLevel] * fitScale(size.width, size.height);
+    const wantedZoom = ZOOMS[view.current.zoomLevel] * fitZoom(size.width, size.height, span);
     (camera as THREE.OrthographicCamera).zoom = zoom + (wantedZoom - zoom) * Math.min(delta * 8, 1);
     camera.updateProjectionMatrix();
   });
@@ -85,14 +84,16 @@ export function OfficeScene({ picker }: { picker: MutableRefObject<ScreenToGrid 
   const [, redraw] = useState(0);
   const drag = useRef<{ x: number; y: number } | null>(null);
   const moved = useRef(false);
-  const ground = useMemo(() => {
-    const texture = grassTexture().clone();
-    texture.repeat.set(GROUND, GROUND);
-    texture.needsUpdate = true;
-    return texture;
-  }, []);
+  const sunTarget = useMemo(() => new THREE.Object3D(), []);
+  const officeWidth = snapshot?.office.width ?? 0;
+  const officeHeight = snapshot?.office.height ?? 0;
+  const span = officeWidth + officeHeight || 60;
+  useEffect(() => {
+    view.current.target.set(officeWidth / 2, 0, officeHeight / 2);
+  }, [officeWidth, officeHeight]);
 
   if (!snapshot) return null;
+  const shadowReach = Math.max(snapshot.office.width, snapshot.office.height) * 0.75 + 14;
   const colorOf = (departmentId: string | null) =>
     snapshot.departments.find((d) => d.id === departmentId)?.color ?? "#64748b";
   const roomDimmed = (roomId: string) =>
@@ -100,7 +101,7 @@ export function OfficeScene({ picker }: { picker: MutableRefObject<ScreenToGrid 
     !Object.values(agents).some((a) => a.home_room_id === roomId && a.department_id === highlight);
 
   const pan = (dx: number, dy: number) => {
-    const scale = 1 / (ZOOMS[view.current.zoomLevel] * fitScale(window.innerWidth, window.innerHeight));
+    const scale = 1 / (ZOOMS[view.current.zoomLevel] * fitZoom(window.innerWidth, window.innerHeight, span));
     const angle = Math.PI / 4 + (view.current.turns * Math.PI) / 2;
     const right = new THREE.Vector3(Math.cos(angle), 0, -Math.sin(angle));
     const forward = new THREE.Vector3(Math.sin(angle), 0, Math.cos(angle));
@@ -130,23 +131,30 @@ export function OfficeScene({ picker }: { picker: MutableRefObject<ScreenToGrid 
         view.current.zoomLevel = Math.min(Math.max(next, 0), ZOOMS.length - 1);
       }}
     >
-      <Canvas shadows dpr={[1, 1.5]} gl={{ preserveDrawingBuffer: true, antialias: false }}>
-        <color attach="background" args={["#7dd3fc"]} />
-        <ambientLight intensity={1.5} />
-        <directionalLight position={[30, 50, 15]} intensity={2} castShadow shadow-mapSize={[2048, 2048]}>
-          <orthographicCamera attach="shadow-camera" args={[-45, 45, 45, -45, 1, 150]} />
+      <Canvas shadows flat dpr={[1, 1.5]} gl={{ preserveDrawingBuffer: true, antialias: false }}>
+        <color attach="background" args={["#7fc98b"]} />
+        <hemisphereLight args={["#e0f2fe", "#86c98f", 1.5]} />
+        <primitive object={sunTarget} position={[center.x, 0, center.z]} />
+        <directionalLight
+          position={[center.x + 22, 42, center.z + 12]}
+          target={sunTarget}
+          color="#fff1d6"
+          intensity={2.1}
+          castShadow
+          shadow-mapSize={[1536, 1536]}
+          shadow-bias={-0.0004}
+          shadow-normalBias={0.03}
+        >
+          <orthographicCamera attach="shadow-camera" args={[-shadowReach, shadowReach, shadowReach, -shadowReach, 1, 140]} />
         </directionalLight>
-        <mesh position={[center.x, -0.02, center.z]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-          <planeGeometry args={[GROUND, GROUND]} />
-          <meshStandardMaterial map={ground} />
-        </mesh>
+        <Grounds width={snapshot.office.width} height={snapshot.office.height} />
         {snapshot.office.rooms.map((room) => (
           <RoomMesh key={room.id} room={room} dimmed={roomDimmed(room.id)} />
         ))}
         {Object.values(agents).map((agent) => (
           <AgentAvatar key={agent.id} agent={agent} color={colorOf(agent.department_id)} />
         ))}
-        <CameraRig view={view} picker={picker} />
+        <CameraRig view={view} picker={picker} span={span} />
       </Canvas>
       <div className="absolute bottom-3 left-3 flex gap-1" onPointerDown={(e) => e.stopPropagation()}>
         <SceneButton label={t("Girar a la izquierda")} onClick={() => (view.current.turns -= 1)}>⟲</SceneButton>
@@ -175,7 +183,7 @@ function SceneButton({ label, onClick, children }: { label: string; onClick: () 
       aria-label={label}
       title={label}
       onClick={onClick}
-      className="h-8 w-8 rounded bg-slate-800 text-lg text-slate-50 hover:bg-slate-700"
+      className="scene-button"
     >
       {children}
     </button>

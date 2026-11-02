@@ -121,6 +121,63 @@ function HireForm() {
   );
 }
 
+function Departments() {
+  const client = useQueryClient();
+  const { data = [] } = useQuery({ queryKey: ["departments"], queryFn: () => api.get<{ id: string; name: string; color: string }[]>("/company/departments") });
+  const [form, setForm] = useState({ name: "", color: "#6366f1" });
+  const [error, setError] = useState<unknown>(null);
+  const run = async (action: () => Promise<unknown>) => {
+    setError(null);
+    try {
+      await action();
+      await client.invalidateQueries({ queryKey: ["departments"] });
+      await client.invalidateQueries({ queryKey: ["snapshot"] });
+    } catch (failure) {
+      setError(failure);
+    }
+  };
+  return (
+    <section className="space-y-2 rounded bg-ink-soft p-3">
+      <h2 className="font-semibold">{t("Departamentos")}</h2>
+      <ErrorNote error={error} />
+      <ul className="space-y-1 text-sm">
+        {data.map((department) => (
+          <li key={department.id} className="flex items-center gap-2">
+            <input
+              type="color"
+              aria-label={t("Color de {0}", department.name)}
+              className="h-6 w-6 rounded"
+              defaultValue={department.color}
+              onBlur={(e) => run(() => api.patch(`/company/departments/${department.id}`, { name: department.name, color: e.target.value }))}
+            />
+            <input
+              aria-label={t("Nombre de {0}", department.name)}
+              className={inputClass}
+              defaultValue={department.name}
+              onBlur={(e) => e.target.value !== department.name && run(() => api.patch(`/company/departments/${department.id}`, { name: e.target.value, color: department.color }))}
+            />
+            <Button aria-label={t("Borrar {0}", department.name)} onClick={() => run(() => api.del(`/company/departments/${department.id}`))}>✕</Button>
+          </li>
+        ))}
+      </ul>
+      <form
+        className="flex gap-2"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void run(async () => {
+            await api.post("/company/departments", form);
+            setForm({ ...form, name: "" });
+          });
+        }}
+      >
+        <input required aria-label={t("Nuevo departamento")} placeholder={t("Nuevo departamento")} className={inputClass} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+        <input type="color" aria-label={t("Color")} className="h-8 w-10 rounded" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} />
+        <Button type="submit" tone="primary">{t("Añadir")}</Button>
+      </form>
+    </section>
+  );
+}
+
 function Supervisions() {
   const client = useQueryClient();
   const agents = useOffice((s) => s.agents);
@@ -183,12 +240,13 @@ export function OrgChartPage() {
   return (
     <div className="grid h-full grid-cols-[1fr_22rem] gap-4 overflow-y-auto p-4">
       <div>
-        <h1 className="mb-2 text-lg font-semibold">{t("Organigrama")}</h1>
+        <h1 className="page-title mb-3">{t("Organigrama")}</h1>
         <p className="mb-2 text-sm text-slate-300">{t("Dueño · Consejo de Administración")}</p>
         <ul>{data.map((node) => <Branch key={node.id} node={node} />)}</ul>
       </div>
       <div className="space-y-3">
         <HireForm />
+        <Departments />
         <Supervisions />
       </div>
     </div>

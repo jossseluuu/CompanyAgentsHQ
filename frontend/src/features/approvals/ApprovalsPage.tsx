@@ -51,7 +51,7 @@ export function ApprovalsPage() {
   const decided = history.data?.filter((a) => a.status !== "pending") ?? [];
   return (
     <div className="mx-auto h-full max-w-3xl space-y-3 overflow-y-auto p-4">
-      <h1 className="text-lg font-semibold">{t("Bandeja de aprobaciones")}</h1>
+      <h1 className="page-title">{t("Bandeja de aprobaciones")}</h1>
       {pending.data?.length === 0 && <Empty>{t("No hay decisiones pendientes")}</Empty>}
       {pending.data?.map((item) => <ApprovalCard key={item.id} item={item} />)}
       {decided.length > 0 && <h2 className="font-semibold">{t("Decididas")}</h2>}

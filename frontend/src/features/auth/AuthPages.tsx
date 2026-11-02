@@ -24,7 +24,9 @@ export function LoginPage({ setup }: { setup: boolean }) {
     }
   };
   return (
-    <form onSubmit={submit} className="mx-auto mt-24 max-w-sm space-y-3 rounded-lg bg-ink-soft p-6">
+    <div className="auth-screen">
+      <form onSubmit={submit} className="auth-card space-y-3 rounded-lg bg-ink-soft p-6">
+      <p className="brand text-2xl">CompanyAgentsHQ</p>
       <h1 className="text-xl font-semibold">{setup ? t("Crea tu cuenta de dueño") : t("Entrar en CompanyAgentsHQ")}</h1>
       {setup && (
         <Field label={t("Nombre")}>
@@ -42,6 +44,7 @@ export function LoginPage({ setup }: { setup: boolean }) {
         {setup ? t("Crear cuenta") : t("Entrar")}
       </Button>
     </form>
+    </div>
   );
 }
 
@@ -69,7 +72,9 @@ export function OnboardingPage() {
     }
   };
   return (
-    <form onSubmit={submit} className="mx-auto mt-24 max-w-md space-y-3 rounded-lg bg-ink-soft p-6">
+    <div className="auth-screen">
+      <form onSubmit={submit} className="auth-card space-y-3 rounded-lg bg-ink-soft p-6">
+      <p className="brand text-2xl">CompanyAgentsHQ</p>
       <h1 className="text-xl font-semibold">{t("Monta tu empresa")}</h1>
       <Field label={t("Nombre de la empresa")}>
         <input required className={inputClass} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
@@ -95,5 +100,6 @@ export function OnboardingPage() {
         <input type="file" accept=".zip" className="sr-only" onChange={(e) => restore(e.target.files?.[0])} />
       </label>
     </form>
+    </div>
   );
 }

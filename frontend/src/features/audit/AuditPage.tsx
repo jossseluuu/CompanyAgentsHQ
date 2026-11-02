@@ -76,7 +76,7 @@ export function AuditPage() {
   const [verdict, setVerdict] = useState<{ valid: boolean; checked: number; broken_at_seq: number | null } | null>(null);
   return (
     <div className="mx-auto h-full max-w-5xl space-y-4 overflow-y-auto p-4">
-      <h1 className="text-lg font-semibold">{t("Auditoría")}</h1>
+      <h1 className="page-title">{t("Auditoría")}</h1>
       <div className="flex flex-wrap items-center gap-2 text-sm">
         <Button onClick={async () => setVerdict(await api.get("/audit/verify"))}>{t("Verificar integridad")}</Button>
         <a className="underline" href="/api/v1/audit/export?format=csv">{t("Exportar CSV")}</a>

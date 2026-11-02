@@ -23,6 +23,8 @@ function CompanyForm({ company }: { company: Snapshot }) {
     name: company.name,
     mission: company.mission,
     values: company.values,
+    sector: company.sector ?? "",
+    timezone: company.timezone ?? "Europe/Madrid",
     daily_budget_eur: company.daily_budget_eur,
     monthly_budget_eur: company.monthly_budget_eur,
   });
@@ -45,6 +47,10 @@ function CompanyForm({ company }: { company: Snapshot }) {
       <Field label={t("Nombre")}><input className={inputClass} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
       <Field label={t("Misión")}><textarea className={inputClass} value={form.mission} onChange={(e) => setForm({ ...form, mission: e.target.value })} /></Field>
       <Field label={t("Valores")}><textarea className={inputClass} value={form.values} onChange={(e) => setForm({ ...form, values: e.target.value })} /></Field>
+      <div className="grid grid-cols-2 gap-2">
+        <Field label={t("Sector")}><input className={inputClass} value={form.sector} onChange={(e) => setForm({ ...form, sector: e.target.value })} /></Field>
+        <Field label={t("Zona horaria")}><input className={inputClass} value={form.timezone} onChange={(e) => setForm({ ...form, timezone: e.target.value })} /></Field>
+      </div>
       <div className="grid grid-cols-2 gap-2">
         <Field label={t("Límite diario (€)")}><input type="number" step="0.01" min="0" className={inputClass} value={form.daily_budget_eur} onChange={(e) => setForm({ ...form, daily_budget_eur: Number(e.target.value) })} /></Field>
         <Field label={t("Límite mensual (€)")}><input type="number" step="0.01" min="0" className={inputClass} value={form.monthly_budget_eur} onChange={(e) => setForm({ ...form, monthly_budget_eur: Number(e.target.value) })} /></Field>
@@ -163,8 +169,8 @@ function Backup() {
 export function SettingsPage() {
   const { data } = useQuery({ queryKey: ["snapshot"], queryFn: () => api.get<Snapshot>("/company") });
   return (
-    <div className="mx-auto h-full max-w-2xl space-y-6 overflow-y-auto p-4">
-      <h1 className="text-lg font-semibold">{t("Ajustes")}</h1>
+    <div className="page max-w-2xl">
+      <h1 className="page-title">{t("Ajustes")}</h1>
       {data && <CompanyForm key={data.id} company={data} />}
       <AiForm />
       <Preferences />

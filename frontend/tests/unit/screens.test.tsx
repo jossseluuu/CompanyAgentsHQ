@@ -42,6 +42,7 @@ const profile = {
 
 function respond(url: string): unknown {
   if (url.includes("/role-catalog")) return { groups: [] };
+  if (url.includes("/departments")) return [{ id: "d1", name: "Finanzas", color: "#10b981" }];
   if (url.includes("/routine")) return { rules: {}, defaults: { resting: "break", meeting: "boardroom", reading: "cabinet" }, targets: ["break", "boardroom", "cabinet", "workplace"] };
   if (url.includes("/profile")) return profile;
   if (url.includes("/prompt-versions")) return [{ version: 1, note: "n", system_prompt: "Otro" }];

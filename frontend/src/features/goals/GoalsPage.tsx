@@ -102,7 +102,7 @@ export function GoalsPage() {
     <div className="flex h-full min-h-0">
       <aside className="w-80 shrink-0 space-y-3 overflow-y-auto border-r border-ink-line p-3">
         <form onSubmit={submit} className="space-y-2">
-          <h1 className="text-lg font-semibold">{t("Nuevo objetivo para la CEO")}</h1>
+          <h1 className="page-title">{t("Nuevo objetivo para la CEO")}</h1>
           <Field label={t("Título")}>
             <input required className={inputClass} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
           </Field>

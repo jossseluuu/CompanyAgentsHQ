@@ -6,9 +6,16 @@ import type { Room } from "@/api/types";
 import { useOffice } from "@/store/office";
 
 import { Furniture } from "./Furniture";
-import { brickTexture, tileTexture } from "./pixelTextures";
+import { brickTexture, carpetTexture, tiled, tileTexture, woodTexture } from "./pixelTextures";
 
-const WALL_HEIGHT = 1.1;
+const WALL_HEIGHT = 0.9;
+const CAP_HEIGHT = 0.1;
+const FLOORS: Record<string, () => ReturnType<typeof tileTexture>> = {
+  "sala-descanso": woodTexture,
+  "sala-juntas": carpetTexture,
+  "despacho-ceo": carpetTexture,
+  marketing: woodTexture,
+};
 
 function wallSegments(room: Room) {
   const doors = new Set(room.doors.map(([x, y]) => `${x},${y}`));
@@ -19,6 +26,14 @@ function wallSegments(room: Room) {
   return tiles.filter(([a, b]) => !doors.has(`${a},${b}`));
 }
 
+function fillRow(mesh: InstancedMesh | null, walls: [number, number][], y: number) {
+  if (!mesh) return;
+  const matrix = new Matrix4();
+  walls.forEach(([x, z], index) => mesh.setMatrixAt(index, matrix.setPosition(x, y, z)));
+  mesh.instanceMatrix.needsUpdate = true;
+  mesh.computeBoundingSphere();
+}
+
 export function RoomMesh({ room, dimmed }: { room: Room; dimmed: boolean }) {
   const [hovered, setHovered] = useState(false);
   const openRoom = useOffice((s) => s.openRoom);
@@ -27,19 +42,15 @@ export function RoomMesh({ room, dimmed }: { room: Room; dimmed: boolean }) {
   const pickedFurniture = useOffice((s) => s.editFurnitureId);
   const walls = useMemo(() => wallSegments(room), [room]);
   const wallMesh = useRef<InstancedMesh>(null);
+  const capMesh = useRef<InstancedMesh>(null);
   useLayoutEffect(() => {
-    if (!wallMesh.current) return;
-    const matrix = new Matrix4();
-    walls.forEach(([x, z], index) => wallMesh.current!.setMatrixAt(index, matrix.setPosition(x, WALL_HEIGHT / 2, z)));
-    wallMesh.current.instanceMatrix.needsUpdate = true;
-    wallMesh.current.computeBoundingSphere();
+    fillRow(wallMesh.current, walls, WALL_HEIGHT / 2);
+    fillRow(capMesh.current, walls, WALL_HEIGHT + CAP_HEIGHT / 2);
   }, [walls]);
-  const floor = useMemo(() => {
-    const texture = tileTexture().clone();
-    texture.repeat.set(room.width, room.height);
-    texture.needsUpdate = true;
-    return texture;
-  }, [room.width, room.height]);
+  const floor = useMemo(
+    () => tiled((FLOORS[room.slug] ?? tileTexture)(), room.width, room.height),
+    [room.slug, room.width, room.height],
+  );
   const cx = room.grid_x + (room.width - 1) / 2;
   const cz = room.grid_y + (room.height - 1) / 2;
   const moduleKey = (id: string) => room.modules.find((m) => m.id === id)?.module_key;
@@ -71,16 +82,27 @@ export function RoomMesh({ room, dimmed }: { room: Room; dimmed: boolean }) {
         <meshStandardMaterial
           color={room.color}
           map={floor}
-          emissive={selected || hovered ? "#6366f1" : "#000000"}
-          emissiveIntensity={selected ? 0.35 : hovered ? 0.2 : 0}
+          roughness={0.9}
+          emissive={selected || hovered ? "#818cf8" : "#000000"}
+          emissiveIntensity={selected ? 0.35 : hovered ? 0.18 : 0}
           transparent={dimmed}
           opacity={dimmed ? 0.35 : 1}
         />
       </mesh>
-      <instancedMesh ref={wallMesh} args={[undefined, undefined, walls.length]} castShadow>
+      <instancedMesh ref={wallMesh} args={[undefined, undefined, walls.length]} castShadow receiveShadow>
         <boxGeometry args={[1, WALL_HEIGHT, 1]} />
-        <meshStandardMaterial color={dimmed ? "#64748b" : "#ffffff"} map={brickTexture()} />
+        <meshStandardMaterial color={dimmed ? "#64748b" : "#ffffff"} map={brickTexture()} roughness={0.95} />
       </instancedMesh>
+      <instancedMesh ref={capMesh} args={[undefined, undefined, walls.length]} castShadow>
+        <boxGeometry args={[1, CAP_HEIGHT, 1]} />
+        <meshStandardMaterial color={selected ? "#818cf8" : room.color} roughness={0.7} />
+      </instancedMesh>
+      {room.doors.map(([x, z]) => (
+        <mesh key={`${x},${z}`} position={[x, 0.02, z]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+          <planeGeometry args={[1, 1]} />
+          <meshStandardMaterial color="#7c4a21" map={woodTexture()} />
+        </mesh>
+      ))}
       {room.furniture.map((item) => {
         const key = moduleKey(item.room_module_id);
         return (
@@ -101,11 +123,11 @@ export function RoomMesh({ room, dimmed }: { room: Room; dimmed: boolean }) {
           />
         );
       })}
-      {(hovered || selected) && (
-        <Html position={[cx, 2.2, cz]} center zIndexRange={[20, 0]} style={{ pointerEvents: "none" }}>
-          <div className="whitespace-nowrap rounded bg-slate-900 px-2 py-0.5 text-sm text-slate-50 shadow">{room.name}</div>
-        </Html>
-      )}
+      <Html position={[room.grid_x + 1, 1.7, room.grid_y + 1]} center zIndexRange={[12, 0]} style={{ pointerEvents: "none" }}>
+        <div className={`room-sign ${hovered || selected ? "room-sign-active" : ""}`} style={{ borderColor: room.color }}>
+          {room.name}
+        </div>
+      </Html>
     </group>
   );
 }

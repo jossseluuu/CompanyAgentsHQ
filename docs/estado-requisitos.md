@@ -52,7 +52,7 @@ Calidad, leída a mano: son pasadas sueltas, no una medida estadística. Con los
 |---|---|
 | REN-03 carga < 3 s | Medido: 1,0 s con el servidor de desarrollo local |
 | REN-07 A* < 5 ms | Medido: mediana 2,2 ms y máximo 4,9 ms en 100 × 100 |
-| REN-01 ≥ 50 fps | Medido: 142 fps con 20 agentes en una RTX 5050 Laptop, en Edge con Direct3D 11 |
+| REN-01 ≥ 50 fps | Medido: 60 fps con 20 agentes y la escena detallada, en Edge. Con 142 fps antes de añadir jardín y sombras |
 | REN-02, 08 | Sin medir (D) |
 | REN-04, 05, 06 | Medido en local con un solo cliente, sin concurrencia: p95 de 32 ms en 300 GET de la API; PDF de 50 páginas indexado en 6,7 s con `bge-m3`; búsqueda con 10.000 fragmentos en 94 ms de mediana, con un pico de 5,0 s en 20 consultas. **El pico no se ha explicado** |
 | TRE-01 a 04 | Hecho: reconexión con `since`, interpolación en el cliente y pestañas sincronizadas probadas. Sin medir los 500 ms |

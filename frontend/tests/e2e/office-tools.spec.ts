@@ -55,3 +55,22 @@ test("la empresa se descarga en un ZIP", async ({ page }) => {
   const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("link", { name: "Exportar empresa" }).click()]);
   expect(download.suggestedFilename()).toBe("companyagentshq-export.zip");
 });
+
+test("gestión: departamentos, ficha del agente y vista global de tareas", async ({ page }) => {
+  await signIn(page);
+  await page.getByRole("link", { name: "Organigrama" }).click();
+  await page.getByRole("textbox", { name: "Nuevo departamento" }).fill("Calidad");
+  await page.getByRole("textbox", { name: "Nuevo departamento" }).press("Enter");
+  await expect(page.getByRole("textbox", { name: "Nombre de Calidad" })).toBeVisible();
+
+  await page.getByRole("link", { name: "Oficina" }).click();
+  await page.getByRole("navigation", { name: "Salas y agentes" }).getByRole("button", { name: /Diego/ }).click();
+  const profile = page.getByRole("complementary", { name: /Ficha/ });
+  await profile.getByLabel(/^Departamento/).selectOption({ label: "Calidad" });
+  await expect(profile.getByLabel(/^Departamento/)).toHaveValue(/.+/);
+
+  await page.getByRole("link", { name: "Tareas" }).click();
+  await expect(page.getByRole("heading", { name: "Tareas" })).toBeVisible();
+  await expect(page.getByRole("listitem").filter({ hasText: "Plan de contenidos" }).first()).toBeVisible();
+  await page.screenshot({ path: process.env.SHOTS + "/08-tareas.png" });
+});

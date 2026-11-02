@@ -58,9 +58,33 @@ export const tileTexture = () =>
 export const grassTexture = () =>
   pixelTexture("grass", (x, y) => {
     const value = speckle(x, y);
-    if (value > 0.75) return "#4ade80";
-    return value > 0.35 ? "#22c55e" : "#16a34a";
+    if (value > 0.85) return "#6fcf7c";
+    return value > 0.4 ? "#57bd6b" : "#4cb062";
   });
+
+export const stoneTexture = () =>
+  pixelTexture("stone", (x, y) => {
+    if (x === 7 || y === 7) return "#8d97a5";
+    return speckle(x, y) > 0.6 ? "#c3cad4" : "#b5bdc9";
+  });
+
+export const woodTexture = () =>
+  pixelTexture("wood", (x, y) => {
+    const plank = Math.floor(y / 4);
+    if (y % 4 === 3 || (x + plank * 5) % 16 === 0) return "#a89b8c";
+    return speckle(x, y + plank) > 0.65 ? "#efe6da" : "#fbf5ec";
+  }, 16);
+
+export const carpetTexture = () =>
+  pixelTexture("carpet", (x, y) => ((x + y) % 4 === 0 ? "#eceff5" : speckle(x, y) > 0.7 ? "#f2f4f9" : "#ffffff"));
+
+/** Copia que comparte la imagen y repite a su propia escala: una textura, muchas superficies. */
+export function tiled(texture: CanvasTexture, width: number, height: number) {
+  const copy = texture.clone();
+  copy.repeat.set(width, height);
+  copy.needsUpdate = true;
+  return copy;
+}
 
 export interface Look {
   skin: string;

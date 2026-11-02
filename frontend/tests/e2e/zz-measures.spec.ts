@@ -10,6 +10,19 @@ test("carga, fps y sincronización entre pestañas", async ({ page, context }) =
   await expect(page.getByText("● En vivo")).toBeVisible();
   console.log("carga_ms", Date.now() - started);
 
+  // RNF-REN-01 se mide con 20 agentes en la oficina.
+  await page.evaluate(async () => {
+    const csrf = document.cookie.match(/cahq_csrf=([^;]+)/)?.[1] ?? "";
+    const headers = { "Content-Type": "application/json", "X-CSRF-Token": csrf };
+    const agents = await (await fetch("/api/v1/agents")).json();
+    for (let i = agents.length; i < 20; i += 1) {
+      await fetch(`/api/v1/agents/${agents[i % agents.length].id}/clone`, { method: "POST", headers, body: JSON.stringify({ name: `Clon ${i}` }) });
+    }
+  });
+  await page.reload();
+  await expect(page.getByText("● En vivo")).toBeVisible();
+  await page.waitForTimeout(3000);
+
   const fps = await page.evaluate(
     () =>
       new Promise<number>((resolve) => {

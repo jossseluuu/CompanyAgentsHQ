@@ -5,6 +5,8 @@ import { BrowserRouter } from "react-router-dom";
 
 import { App } from "@/app/App";
 import { applyTheme, currentTheme } from "@/shared/theme";
+import "@fontsource-variable/inter";
+import "@fontsource/pixelify-sans/600.css";
 import "./index.css";
 
 export const queryClient = new QueryClient({

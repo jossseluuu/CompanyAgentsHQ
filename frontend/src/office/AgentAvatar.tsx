@@ -1,6 +1,6 @@
 import { Html } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
-import { useRef } from "react";
+import { useMemo, useRef } from "react";
 import type { Group } from "three";
 
 import type { Agent } from "@/api/types";
@@ -9,6 +9,18 @@ import { useOffice } from "@/store/office";
 import { poseAt } from "./pathAnimator";
 import { faceTexture, hairSideTexture, hairTexture, lookFor, shirtTexture, speckleTexture } from "./pixelTextures";
 import { STATUS } from "./status";
+
+/** Marca en el suelo; el estado también va en texto e icono (RNF-USA-03). */
+const RING: Partial<Record<string, string>> = {
+  thinking: "#818cf8",
+  working: "#38bdf8",
+  reviewing: "#a78bfa",
+  meeting: "#e879f9",
+  waiting_approval: "#facc15",
+  flagged: "#fb923c",
+  error: "#ef4444",
+  paused: "#94a3b8",
+};
 
 const PROBLEMS = new Set(["error", "waiting_approval", "paused", "flagged"]);
 
@@ -28,23 +40,27 @@ export function AgentAvatar({ agent, color }: { agent: Agent; color: string }) {
       (s.highlightDepartment !== null && s.highlightDepartment !== agent.department_id),
   );
   const lastClick = useRef(0);
+  const phase = useMemo(() => agent.id.charCodeAt(0) + agent.id.charCodeAt(1), [agent.id]);
 
   useFrame(() => {
     if (!body.current) return;
     const now = performance.now();
     const pose = walk ? poseAt(walk, now) : { x: agent.pos_x, z: agent.pos_y, walking: false, heading: 0 };
-    body.current.position.set(pose.x, 0, pose.z);
+    const hop = pose.walking ? Math.abs(Math.sin(now / 90)) * 0.07 : Math.sin(now / 500 + phase) * 0.012;
+    body.current.position.set(pose.x, Math.max(hop, 0), pose.z);
     if (pose.walking) body.current.rotation.y = pose.heading;
     const swing = pose.walking ? Math.sin(now / 90) * 0.6 : 0;
     if (legL.current) legL.current.rotation.x = swing;
     if (legR.current) legR.current.rotation.x = -swing;
-    if (armL.current) armL.current.rotation.x = -swing;
-    if (armR.current) armR.current.rotation.x = swing;
+    if (armL.current) armL.current.rotation.x = -swing - (!pose.walking && agent.status === "working" ? Math.cos(now / 70) * 0.18 + 0.9 : 0);
+    const typing = !pose.walking && agent.status === "working" ? Math.sin(now / 70) * 0.18 - 0.9 : 0;
+    if (armR.current) armR.current.rotation.x = swing + typing;
     const seated = !pose.walking && agent.status === "resting";
     body.current.scale.y = seated ? 0.8 : 1;
   });
 
   const look = lookFor(agent.id);
+  const ring = RING[flagged ? "flagged" : agent.status];
   const fade = { transparent: dimmed, opacity: dimmed ? 0.3 : 1 };
   const info = STATUS[flagged && agent.status !== "paused" ? "flagged" : agent.status];
   return (
@@ -64,6 +80,12 @@ export function AgentAvatar({ agent, color }: { agent: Agent; color: string }) {
       }}
       onPointerOut={() => (document.body.style.cursor = "")}
     >
+      {ring && (
+        <mesh position={[0, 0.04, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[0.36, 0.46, 4, 1, Math.PI / 4]} />
+          <meshBasicMaterial color={ring} toneMapped={false} />
+        </mesh>
+      )}
       <group ref={legL} position={[-0.1, 0.4, 0]}>
         <mesh position={[0, -0.2, 0]} castShadow>
           <boxGeometry args={[0.18, 0.4, 0.2]} />
@@ -104,9 +126,9 @@ export function AgentAvatar({ agent, color }: { agent: Agent; color: string }) {
       <Html position={[0, 1.65, 0]} center zIndexRange={[15, 0]} style={{ pointerEvents: "none" }}>
         <div className="flex flex-col items-center gap-0.5" style={{ opacity: dimmed ? 0.3 : 1 }}>
           {bubble && (
-            <div className="w-44 rounded bg-white px-1.5 py-0.5 text-center text-xs text-black shadow">{bubble.text}</div>
+            <div className="speech-bubble">{bubble.text}</div>
           )}
-          <div className={`whitespace-nowrap rounded px-1 text-[11px] leading-4 ${info.tone}`} title={info.label}>
+          <div className={`agent-tag ${info.tone}`} title={info.label}>
             <span aria-hidden>{info.icon}</span> {agent.name}
           </div>
         </div>

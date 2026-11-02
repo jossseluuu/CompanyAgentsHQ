@@ -5,6 +5,7 @@ import { api } from "@/api/client";
 import type { Citation, KbDocument, KnowledgeBase } from "@/api/types";
 import { Badge, Button, Empty, Field, inputClass } from "@/shared/ui";
 import { t } from "@/shared/i18n";
+import { useOffice } from "@/store/office";
 
 export function BaseDetail({ base }: { base: KnowledgeBase }) {
   const client = useQueryClient();
@@ -12,6 +13,8 @@ export function BaseDetail({ base }: { base: KnowledgeBase }) {
     queryKey: ["kb-documents", base.id],
     queryFn: () => api.get<KbDocument[]>(`/knowledge-bases/${base.id}/documents`),
   });
+  const agents = useOffice((s) => s.agents);
+  const [granted, setGranted] = useState("");
   const [note, setNote] = useState({ title: "", text: "" });
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Citation[] | null>(null);
@@ -21,8 +24,28 @@ export function BaseDetail({ base }: { base: KnowledgeBase }) {
     setNote({ title: "", text: "" });
     await client.invalidateQueries({ queryKey: ["kb-documents", base.id] });
   };
+  const grant = async (agent_id: string, can_write: boolean) => {
+    if (!agent_id) return;
+    await api.put(`/knowledge-bases/${base.id}/permissions`, { agent_id, can_read: true, can_write });
+    setGranted(agents[agent_id]?.name ?? "");
+  };
   return (
     <div className="space-y-3 text-sm">
+      <div className="flex flex-wrap items-end gap-2 rounded bg-ink-soft p-2">
+        <Field label={t("Dar lectura a")}>
+          <select className={inputClass} value="" onChange={(e) => grant(e.target.value, false)}>
+            <option value="">{t("Elige agente")}</option>
+            {Object.values(agents).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+          </select>
+        </Field>
+        <Field label={t("Dar escritura a")}>
+          <select className={inputClass} value="" onChange={(e) => grant(e.target.value, true)}>
+            <option value="">{t("Elige agente")}</option>
+            {Object.values(agents).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+          </select>
+        </Field>
+        {granted && <span role="status">{t("Permiso guardado: {0}", granted)}</span>}
+      </div>
       <div className="flex items-center gap-2">
         <h2 className="font-semibold">{base.name}</h2>
         <Button onClick={() => api.post(`/knowledge-bases/${base.id}/reindex`)}>{t("Reindexar")}</Button>
@@ -72,7 +95,7 @@ export function KnowledgePage() {
   return (
     <div className="flex h-full min-h-0">
       <aside className="w-72 shrink-0 overflow-y-auto border-r border-ink-line p-3 text-sm">
-        <h1 className="mb-2 text-lg font-semibold">{t("Bases de conocimiento")}</h1>
+        <h1 className="page-title mb-3">{t("Bases de conocimiento")}</h1>
         {bases.map((item) => (
           <button key={item.id} className="flex w-full justify-between rounded p-1 text-left hover:bg-ink-soft" onClick={() => setSelected(item.id)}>
             <span>{item.name}</span>

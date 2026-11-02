@@ -78,10 +78,35 @@ function ProfileTab({ data, refresh }: { data: Profile; refresh: () => void }) {
       setError(failure);
     }
   };
+  const colleagues = Object.values(useOffice.getState().agents);
+  const departments = useOffice.getState().snapshot?.departments ?? [];
   const update = (body: object) => api.patch(`/agents/${agent.id}`, body).then(refresh).catch(setError);
   return (
     <div className="space-y-2 text-sm">
       <p>{t("Rol:")} {agent.role}</p>
+      <Field label={t("Nombre")}>
+        <input className={inputClass} defaultValue={agent.name} onBlur={(e) => e.target.value && update({ name: e.target.value })} />
+      </Field>
+      <div className="grid grid-cols-2 gap-2">
+        <Field label={t("Jefe")}>
+          <select className={inputClass} value={agent.manager_id ?? ""} onChange={(e) => update({ manager_id: e.target.value || null })}>
+            <option value="">{t("Sin jefe")}</option>
+            {colleagues.filter((a) => a.id !== agent.id).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+          </select>
+        </Field>
+        <Field label={t("Departamento")}>
+          <select className={inputClass} value={agent.department_id ?? ""} onChange={(e) => update({ department_id: e.target.value || null })}>
+            <option value="">{t("Sin departamento")}</option>
+            {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+          </select>
+        </Field>
+      </div>
+      <Field label={t("Presupuesto diario (€)")}>
+        <input type="number" step="0.1" min="0" className={inputClass} defaultValue={agent.daily_budget_eur} onBlur={(e) => update({ daily_budget_eur: e.target.value })} />
+      </Field>
+      <Field label={t("Herramientas (separadas por comas)")}>
+        <input className={inputClass} defaultValue={(agent.tools ?? []).join(", ")} onBlur={(e) => update({ tools: e.target.value.split(",").map((x) => x.trim()).filter(Boolean) })} />
+      </Field>
       <Field label={t("Modelo (fast, powerful o proveedor:modelo)")}>
         <input className={inputClass} defaultValue={agent.model} onBlur={(e) => update({ model: e.target.value })} />
       </Field>
