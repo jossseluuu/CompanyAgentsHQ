@@ -68,13 +68,18 @@ Antes de exponerlo fuera de tu equipo pon `COOKIE_SECURE=true`, sirve la app por
 
 ## Cargos y salas
 
-En Organigrama puedes contratar 21 cargos directivos repartidos en seis áreas, o escribir uno libre. Cada cargo va a la sala y al departamento de su área; las salas que aún no existan se crean con la primera contratación ([ADR 0007](docs/decisiones/0007-catalogo-de-cargos-y-areas.md)).
+Puedes contratar 646 cargos repartidos en 25 áreas, más los directivos que ya existían, con buscador, o escribir uno libre. Si no pones nombre, el agente se llama como su indicativo. Cada cargo va a la sala y al departamento de su área; las salas que aún no existan se crean con la primera contratación ([ADR 0007](docs/decisiones/0007-catalogo-de-cargos-y-areas.md)). La lista está en `backend/seeds/role_list.txt`.
 
 ## Oficina y empresa
 
-- **Editar la oficina:** en Oficina, pulsa «Editar oficina» para crear, mover, redimensionar y borrar salas y colocar muebles. La app rechaza los solapes y lo que deje a un agente sin paso.
-- **Gestionar:** en Organigrama, los departamentos; en la ficha de cada agente, nombre, jefe, departamento, presupuesto, herramientas, modelo, rutina y prompt; en Tareas, reasignar, priorizar, cancelar y reintentar; en Conocimiento, permisos por agente. El editor de la oficina también añade y quita muebles, coloca la puerta y restringe salas.
+- **Editar la oficina:** en Oficina, pulsa «Editar oficina» para abrir el plano. Arrastra salas, muebles y puestos de agentes, dibuja salas nuevas y pulsa una pared para llevar allí la puerta (con Mayús añades otra). Lo que no cabe se avisa en rojo antes de soltar. «Ver en 3D» enseña el resultado. Los muebles giran desde su centro con R o «Girar», y una raya azul marca su frente en el plano. Otros atajos: flechas para mover, Supr para quitar y Esc para terminar.
+- **Acceso a salas:** en «⚙ Módulos» de cada sala eliges para cada agente Como la sala, Permitir, Solo entrar o Denegar, y ves lo que puede hacer. Un agente sin acceso no entra ni toca los ficheros de la sala, y si está dentro vuelve a su puesto. Su sala base no se le puede denegar: trasládalo antes.
+- **Vida en la oficina:** quien no tiene trabajo pasea, va a la sala de descanso y charla con frases fijas, sin llamar a ningún modelo. Respeta los permisos y la rutina de cada agente, y se apaga en Ajustes.
+- **Muebles:** el catálogo tiene más de 50 piezas por categorías, con buscador, y ofrece varios tamaños, como escritorios de 3 × 1 o archivadores de 2 × 1, y cuatro estéticas: clásica, oscura, clara y viva. El modelo 3D se construye para cada tamaño y cada casilla ocupada cuenta para las colisiones y las rutas. Las alfombras se pisan.
+- **Equipo:** la página Equipo lista a toda la plantilla y abre la ficha completa. La pestaña Prompt edita el prompt, guarda versiones y enseña capa a capa lo que recibe el modelo, con sus herramientas y su memoria. En Auditoría, cada traza guarda lo que se envió de verdad. Las reglas de trabajo y de seguridad son fijas. Al contratar, desde Equipo, Organigrama o una sala, puedes ajustar prompt, herramientas y personalidad.
+- **Gestionar:** en Organigrama, los departamentos y la supervisión; en la ficha de cada agente, nombre, jefe, departamento, presupuesto, herramientas, modelo y rutina; en Tareas, reasignar, priorizar, cancelar y reintentar; en Conocimiento, permisos por agente.
 - **Copia de seguridad:** en Ajustes, «Exportar empresa» descarga un ZIP con configuración, historial y ficheros. Se restaura al crear la empresa en una instalación nueva. El conocimiento se reindexa y las tareas en curso quedan bloqueadas para que decidas.
+- **Eliminar la empresa:** en Ajustes, escribiendo su nombre y tu contraseña. Borra para siempre todo lo de la empresa, incluida la auditoría y los ficheros; tu cuenta se conserva. Exporta antes si quieres guardar algo.
 - **Idioma y tema:** español o inglés y tema oscuro o claro, en Ajustes. Cambiar el idioma también cambia el de los agentes; los nombres de las salas y los agentes ya creados no se traducen.
 
 ## Pruebas

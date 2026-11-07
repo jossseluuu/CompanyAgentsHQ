@@ -108,6 +108,13 @@ async def login(body: Credentials, response: Response, db: Db) -> dict[str, str]
     return {"csrf_token": await _start_session(db, owner, response), "name": owner.name}
 
 
+def password_matches(owner: Owner, password: str) -> bool:
+    try:
+        return _hasher.verify(owner.password_hash, password)
+    except VerifyMismatchError:
+        return False
+
+
 @router.get("/me")
 async def me(db: Db, session: Annotated[str | None, Cookie(alias=SESSION_COOKIE)] = None) -> dict[str, str]:
     found = await owner_from_token(db, session)

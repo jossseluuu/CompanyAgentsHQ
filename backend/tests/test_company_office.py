@@ -115,8 +115,8 @@ async def test_role_catalog_is_optional_and_tells_repeated_acronyms_apart(api: A
     before = await api.get("/agents")
     catalog = await api.get("/role-catalog")
     roles = [r for group in catalog["groups"] for r in group["roles"]]
-    assert len(roles) == 21
-    assert len({r["key"] for r in roles}) == 21
+    assert len(roles) > 640
+    assert len({r["key"] for r in roles}) > 640
     assert len(await api.get("/agents")) == len(before)
 
     risk = next(r for r in roles if r["key"] == "cro_risk")

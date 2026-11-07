@@ -196,7 +196,7 @@ async def _embed_cached(db: AsyncSession, embedder: EmbeddingProvider, texts: li
         try:
             vectors = await embedder.embed([texts[i] for i in batch])
         except httpx.HTTPError as exc:
-            raise EmbeddingsDown(repr(exc)) from exc
+            raise EmbeddingsDown(f"revisa el modelo de embeddings en Ajustes. Detalle: {exc!r}") from exc
         for index, vector in zip(batch, vectors, strict=True):
             known[keys[index]] = fit(vector)
     if missing:

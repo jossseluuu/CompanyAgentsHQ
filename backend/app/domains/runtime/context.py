@@ -24,16 +24,26 @@ RULES = (
 )
 
 
+def prompt_layers(company: Any, agent: Any, base: str) -> list[tuple[str, str]]:
+    """Cada capa del prompt con su origen: lo que ve el dueño es lo que recibe el modelo."""
+    layers = [
+        ("base", base),
+        ("company", f"Empresa: {company.name}."),
+        ("company", f"Misión: {company.mission or 'sin definir'}."),
+    ]
+    if company.values:
+        layers.append(("company", f"Valores: {company.values}."))
+    if agent.personality:
+        layers.append(("personality", f"Tono: {agent.personality}."))
+    layers.append(("company", f"Responde en el idioma de la empresa ({company.locale})."))
+    layers.extend((("rules", RULES), ("security", SECURITY)))
+    return layers
+
+
 async def system_prompt(db: AsyncSession, company: Any, agent: Any) -> tuple[str, int]:
     prompt = await agents_service.current_prompt(db, agent.id)
-    parts = [prompt.system_prompt, f"Empresa: {company.name}.", f"Misión: {company.mission or 'sin definir'}."]
-    if company.values:
-        parts.append(f"Valores: {company.values}.")
-    if agent.personality:
-        parts.append(f"Tono: {agent.personality}.")
-    parts.append(f"Responde en el idioma de la empresa ({company.locale}).")
-    parts.extend((RULES, SECURITY))
-    return "\n\n".join(parts), prompt.version
+    layers = prompt_layers(company, agent, prompt.system_prompt)
+    return "\n\n".join(text for _, text in layers), prompt.version
 
 
 async def allowed_tools(db: AsyncSession, agent: Any, room_id: Any = None) -> dict[str, plugins.Tool]:

@@ -1,5 +1,7 @@
+import re
 import uuid
 from decimal import Decimal
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -22,14 +24,82 @@ STATUSES = {
 }  # fmt: skip
 MEMORY_KEEP = 20
 ROLES = Path(__file__).resolve().parents[3] / "seeds" / "roles.yaml"
+ROLE_LIST = ROLES.with_name("role_list.txt")
+# Indicativo del dueño -> cargo que ya existía: conserva su clave, su prompt, sus herramientas y su sala.
+EXISTING = {
+    "CEO": "ceo", "COO": "coo", "CFO": "cfo", "CTO": "cto", "CIO": "cio", "CRO": "cro_risk", "CCO": "cco_commercial",
+    "CMO": "cmo", "CSTRAT": "cso_strategy", "CHRO": "chro", "GENCOU": "clo", "CCOCMP": "cco_compliance", "CISO": "ciso",
+    "CPROD": "cpo", "CSUPP": "csco", "CSOST": "cso_sustainability", "CCX": "cxo",
+}  # fmt: skip
+LEADS = re.compile(
+    r"^(Vicep|P)residente|^(Sub)?[Dd]irector|^(Sub)?[Gg]erente|^Jefe|^Segundo jefe|^Responsable|^Coordinador|^Supervisor"
+    r"|^Consejero delegado|^Encargado|^Chef ejecutivo"
+)
+LEAD_TOOLS = ["delegate_task", "create_task", "update_task", "request_approval"]
+
+
+def _key(code: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "", code.lower())
+
+
+def _listed_groups(extra: dict[str, dict[str, Any]], base: list[str]) -> list[dict[str, Any]]:
+    groups: list[dict[str, Any]] = []
+    for line in ROLE_LIST.read_text(encoding="utf-8").splitlines():
+        if line.startswith("## "):
+            name, department, room, color, extras = (part.strip() for part in line[3:].split("|"))
+            area = {"department": department, "color": color, "room": room,
+                    "new_room": {"name": department, "w": 16, "h": 8, "color": color, "door": [8, 0]}}  # fmt: skip
+            added = [t.strip() for t in extras.split(",") if t.strip()]
+            groups.append({"name": name, "area": area, "extra": added, "roles": []})
+        elif line.strip() and not line.startswith("#"):
+            title, code = (part.strip() for part in line.split("|"))
+            group = groups[-1]
+            known = extra.pop(EXISTING[code], None) if code in EXISTING else None
+            if known:
+                group["roles"].append({**known, "code": code, "title": title})
+                continue
+            lead = LEAD_TOOLS if LEADS.search(title) else []
+            description = f"{title} en el área de {group['name'].lower()}."
+            allowed = [*base, *lead, *group["extra"]]
+            group["roles"].append(
+                {"key": _key(code), "code": code, "title": title, "description": description, "tools": allowed}
+            )
+    return groups
+
+
+@lru_cache(maxsize=1)
+def _catalog() -> dict[str, Any]:
+    catalog: dict[str, Any] = yaml.safe_load(ROLES.read_text(encoding="utf-8"))
+    existing: dict[str, dict[str, Any]] = {}
+    for group in catalog["groups"]:
+        for role in group["roles"]:
+            role["tools"] = [*catalog["base_tools"], *role.get("tools", [])]
+            role["area"] = group["area"]  # sigue yendo a la sala de siempre
+            existing[role["key"]] = role
+    groups = _listed_groups(existing, catalog["base_tools"])
+    if existing:
+        area = {"department": "Dirección", "room": "despacho-ceo"}
+        groups.append({"name": "Otros cargos directivos", "area": area, "roles": list(existing.values())})
+    return {"groups": groups}
 
 
 def role_catalog() -> dict[str, Any]:
     """Cargos opcionales para contratar: ninguno se crea solo."""
-    catalog: dict[str, Any] = yaml.safe_load(ROLES.read_text(encoding="utf-8"))
-    for role in (r for group in catalog["groups"] for r in group["roles"]):
-        role["tools"] = [*catalog["base_tools"], *role.get("tools", [])]
-    return {"groups": catalog["groups"]}
+    return _catalog()
+
+
+def find_role(role: str) -> dict[str, Any] | None:
+    return next((r for g in role_catalog()["groups"] for r in g["roles"] if r["key"] == role), None)
+
+
+async def default_name(db: AsyncSession, company_id: uuid.UUID, role: str) -> str:
+    """El indicativo del cargo; si ya hay alguien con ese nombre, le sigue un número."""
+    known = find_role(role)
+    code = known["code"] if known else role
+    taken = {a.name for a in await list_active(db, company_id)}
+    if code not in taken:
+        return str(code)
+    return next(f"{code} {n}" for n in range(2, len(taken) + 3) if f"{code} {n}" not in taken)
 
 
 def default_prompt(role: str) -> str:
@@ -37,10 +107,12 @@ def default_prompt(role: str) -> str:
     if path.exists():
         return path.read_text(encoding="utf-8")
     template = (PROMPTS / "_plantilla.md").read_text(encoding="utf-8")
-    known = next((r for g in role_catalog()["groups"] for r in g["roles"] if r["key"] == role), None)
+    known = find_role(role)
     if known is None:
         return template.replace("{rol}", role)
-    return template.replace("{rol}", f"{known['title']} ({known['code']}, {known['full']})").replace(
+    names = f"{known['code']}, {known['full']}" if "full" in known else known["code"]
+    label = f"{known['title'].split(' / ')[0]} ({names})"
+    return template.replace("{rol}", label).replace(
         "Cumple las tareas que te asignen con precisión.", known["description"]
     )
 

@@ -1,3 +1,4 @@
+import logging
 import uuid
 from datetime import datetime
 from decimal import Decimal
@@ -6,16 +7,18 @@ from typing import Any
 from fastapi import APIRouter, Response, UploadFile
 from pydantic import BaseModel, Field
 
-from app.core.auth import CurrentOwner
-from app.core.db import Db
+from app.core.auth import CurrentOwner, password_matches
+from app.core.db import Db, commit
 from app.core.errors import AppError
 from app.core.util import row
 from app.domains.company import portability, service
 from app.domains.company.service import CompanyDep
+from app.domains.files import service as files_service
 from app.domains.finance import service as finance_service
 from app.domains.runtime import service as runtime_service
 
 router = APIRouter(prefix="/company", tags=["company"])
+log = logging.getLogger(__name__)
 
 
 class CompanyIn(BaseModel):
@@ -38,6 +41,11 @@ class CompanyPatch(BaseModel):
     monthly_budget_eur: Decimal | None = Field(default=None, ge=0)
 
 
+class CompanyDelete(BaseModel):
+    confirm_name: str
+    password: str
+
+
 class DepartmentIn(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     color: str = Field(default="#64748b", pattern=r"^#[0-9a-fA-F]{6}$")
@@ -48,6 +56,7 @@ class AiSettings(BaseModel):
     fast_model: str | None = None
     embeddings_provider: str | None = None
     embedding_model: str | None = None
+    office_life: bool | None = None
 
 
 @router.get("/exists")
@@ -126,6 +135,20 @@ async def update_department(department_id: uuid.UUID, body: DepartmentIn, compan
 @router.delete("/departments/{department_id}", status_code=204)
 async def delete_department(department_id: uuid.UUID, company: CompanyDep, db: Db) -> None:
     await service.delete_department(db, await service.get_department(db, company.id, department_id))
+
+
+@router.delete("")
+async def delete_company(body: CompanyDelete, company: CompanyDep, owner: CurrentOwner, db: Db) -> dict[str, int]:
+    if body.confirm_name != company.name:
+        raise AppError("confirm_name", "El nombre no coincide con el de la empresa", 422)
+    if not password_matches(owner, body.password):
+        raise AppError("invalid_credentials", "Contraseña incorrecta", 401)
+    company_id = company.id
+    keys = await portability.delete_company(db, company_id, owner.id)
+    await commit(db)
+    failed = await files_service.erase_stored(keys)
+    log.warning("company_deleted", extra={"company_id": str(company_id), "files": len(keys), "failed": failed})
+    return {"files": len(keys), "files_failed": failed}
 
 
 @router.get("/export")

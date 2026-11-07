@@ -4,6 +4,7 @@ import uuid
 from datetime import timedelta
 from typing import Any
 
+import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import plugins
@@ -20,7 +21,7 @@ from app.domains.finance import service as finance_service
 from app.domains.knowledge import embeddings
 from app.domains.knowledge import service as knowledge_service
 from app.domains.office import service as office_service
-from app.domains.runtime import loop, profile
+from app.domains.runtime import context, loop, profile
 from app.domains.runtime.llm.router import ollama_models
 from app.domains.runtime.queue import enqueue
 from app.domains.tasks import service as tasks_service
@@ -32,6 +33,55 @@ LEASE_SECONDS = 1800
 
 async def agent_profile(db: AsyncSession, agent: Any) -> dict[str, Any]:
     return await profile.build(db, agent)
+
+
+TOOL_GROUPS = {
+    "files": ("search_files", "read_file", "write_file", "delete_file"),
+    "research": ("search_knowledge", "web_search"),
+    "team": ("delegate_task", "ask_manager", "create_task", "update_task", "write_whiteboard"),
+    "finance": ("read_finance", "create_budget", "spend_budget"),
+    "control": ("request_approval", "read_audit"),
+}
+
+
+def tool_catalog() -> list[dict[str, Any]]:
+    providers: dict[str, list[Any]] = {}
+    for module in plugins.modules().values():
+        for name in module.tools():
+            providers.setdefault(name, []).append(module)
+    groups = {name: group for group, names in TOOL_GROUPS.items() for name in names}
+    return [
+        {
+            "name": tool.name,
+            "description": tool.description,
+            "input_schema": tool.input_schema,
+            "sensitive": tool.sensitive,
+            "core": tool.core,
+            "group": groups.get(tool.name, "other"),
+            "modules": [module.name for module in providers.get(tool.name, [])],
+            "module_keys": [module.key for module in providers.get(tool.name, [])],
+        }
+        for tool in sorted(plugins.tools().values(), key=lambda t: t.name)
+    ]
+
+
+async def prompt_preview(db: AsyncSession, company: Any, agent: Any) -> dict[str, Any]:
+    """Lo que recibe el modelo en cada llamada, por capas, con las herramientas y la memoria."""
+    prompt = await agents_service.current_prompt(db, agent.id)
+    layers = context.prompt_layers(company, agent, prompt.system_prompt)
+    system, _ = await context.system_prompt(db, company, agent)
+    usable = await context.allowed_tools(db, agent)
+    return {
+        "version": prompt.version,
+        "layers": [{"source": source, "text": text} for source, text in layers],
+        "system": system,
+        "tools": context.schemas(usable),
+        "memory": await agents_service.memory_digest(db, agent.id),
+    }
+
+
+async def agent_trace(db: AsyncSession, agent_id: uuid.UUID, trace_id: uuid.UUID) -> Any:
+    return await audit_service.get_trace(db, agent_id, trace_id)
 
 
 async def request_plan(db: AsyncSession, goal: Any) -> None:
@@ -223,9 +273,24 @@ async def ai_overview(company: Any) -> dict[str, Any]:
     }
 
 
+async def _check_embeddings(provider: Any) -> None:
+    """Un modelo de chat dejaría sin chat ni objetivos a la empresa. Con el servidor apagado sí se puede guardar."""
+    try:
+        await provider.embed(["prueba"])
+    except httpx.HTTPStatusError as exc:
+        message = f"Ese modelo no genera embeddings ({provider.key}). En Ollama usa bge-m3"
+        raise AppError("embeddings_unusable", message, 422) from exc
+    except httpx.TransportError:
+        return
+
+
 async def update_ai(db: AsyncSession, company: Any, fields: dict[str, Any]) -> None:
     before = embeddings.provider_for(company.ai_settings or {}).key
-    company.ai_settings = {**(company.ai_settings or {}), **{k: v for k, v in fields.items() if v is not None}}
+    wanted = {**(company.ai_settings or {}), **{k: v for k, v in fields.items() if v is not None}}
+    provider = embeddings.provider_for(wanted)
+    if provider.key != before:
+        await _check_embeddings(provider)
+    company.ai_settings = wanted
     await db.flush()
     await audit_service.record(db, company.id, "owner", "company.ai_changed", "", {"fields": sorted(fields)})
     if embeddings.provider_for(company.ai_settings).key != before:
@@ -327,6 +392,8 @@ async def tick_all() -> None:
     async with session_scope() as db:
         for company in (await db.execute(select(Company))).scalars():
             await tick(db, company)
+            if company.status != "paused":
+                await office_service.office_life(db, company)
     await recover()
 
 

@@ -19,7 +19,7 @@ from app.core.models import RealtimeEvent
 
 log = logging.getLogger(__name__)
 CHANNEL = "companyagentshq:events"
-EPHEMERAL = {"agent.message"}  # trozos de streaming: no se guardan para reenvío
+EPHEMERAL = {"agent.message", "agent.strolled", "agent.chatter"}  # streaming y paseos: no se guardan para reenvío
 
 
 @dataclass

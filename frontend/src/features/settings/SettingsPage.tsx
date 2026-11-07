@@ -62,6 +62,8 @@ function CompanyForm({ company }: { company: Snapshot }) {
   );
 }
 
+const EMBEDDING_NAME = /embed|bge|minilm|e5/i;
+
 function AiForm() {
   const client = useQueryClient();
   const { data } = useQuery({ queryKey: ["ai"], queryFn: () => api.get<AiOverview>("/company/ai") });
@@ -105,7 +107,7 @@ function AiForm() {
         </select>
       </Field>
       <datalist id="embedding-models">
-        {[...data.ollama_models, ...data.downloaded_models].map((model) => <option key={model} value={model} />)}
+        {[...data.ollama_models.filter((model) => EMBEDDING_NAME.test(model)), ...data.downloaded_models].map((model) => <option key={model} value={model} />)}
       </datalist>
       <Field label={t("Modelo de embeddings (nombre o ruta local)")}>
         <input list="embedding-models" className={inputClass} placeholder={t("bge-m3")} value={form.embedding_model} onChange={(e) => setForm({ ...form, embedding_model: e.target.value })} />
@@ -119,7 +121,10 @@ function AiForm() {
 }
 
 function Preferences() {
+  const client = useQueryClient();
   const [theme, pickTheme] = useState<Theme>(currentTheme);
+  const { data: ai } = useQuery({ queryKey: ["ai"], queryFn: () => api.get<AiOverview>("/company/ai") });
+  const lively = (ai?.settings as Record<string, unknown> | undefined)?.office_life !== false;
   const changeLanguage = async (next: Language) => {
     await api.patch("/company", { locale: next }).catch(() => undefined);
     setLanguage(next);
@@ -148,6 +153,17 @@ function Preferences() {
           </select>
         </Field>
       </div>
+      <label className="flex items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={lively}
+          onChange={async (e) => {
+            await api.patch("/company/ai", { office_life: e.target.checked });
+            await client.invalidateQueries({ queryKey: ["ai"] });
+          }}
+        />
+        {t("Vida en la oficina: quien no trabaja pasea y charla. No gasta modelo.")}
+      </label>
     </section>
   );
 }
@@ -166,6 +182,41 @@ function Backup() {
   );
 }
 
+function DangerZone({ name }: { name: string }) {
+  const [form, setForm] = useState({ confirm_name: "", password: "" });
+  const [error, setError] = useState<unknown>(null);
+  const [busy, setBusy] = useState(false);
+  const erase = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!window.confirm(t("¿Eliminar {0} para siempre? No se puede deshacer.", name))) return;
+    setError(null);
+    setBusy(true);
+    try {
+      await api.delete("/company", form);
+      window.location.assign("/");
+    } catch (failure) {
+      setError(failure);
+      setBusy(false);
+    }
+  };
+  return (
+    <form onSubmit={erase} className="space-y-2 rounded border border-red-800 p-3">
+      <h2 className="font-semibold text-red-300">{t("Eliminar la empresa")}</h2>
+      <p className="text-sm text-slate-300">
+        {t("Borra para siempre la oficina, los agentes, sus prompts y memoria, las tareas, los objetivos, los ficheros, el conocimiento, las finanzas y la auditoría. Tu cuenta se conserva. Si quieres guardar algo, exporta antes la empresa.")}
+      </p>
+      <Field label={t("Escribe «{0}» para confirmar", name)}>
+        <input autoComplete="off" className={inputClass} value={form.confirm_name} onChange={(e) => setForm({ ...form, confirm_name: e.target.value })} />
+      </Field>
+      <Field label={t("Tu contraseña")}>
+        <input type="password" autoComplete="current-password" className={inputClass} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+      </Field>
+      <ErrorNote error={error} />
+      <Button type="submit" tone="danger" disabled={busy || form.confirm_name !== name || !form.password}>{t("Eliminar todo")}</Button>
+    </form>
+  );
+}
+
 export function SettingsPage() {
   const { data } = useQuery({ queryKey: ["snapshot"], queryFn: () => api.get<Snapshot>("/company") });
   return (
@@ -175,6 +226,7 @@ export function SettingsPage() {
       <AiForm />
       <Preferences />
       <Backup />
+      {data && <DangerZone name={data.name} />}
     </div>
   );
 }

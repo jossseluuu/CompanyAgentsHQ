@@ -41,6 +41,10 @@ const profile = {
 };
 
 function respond(url: string): unknown {
+  if (url.includes("/access")) return [{ agent_id: "a1", name: "Gloria", home: false, custom: false, can_enter: true, can_use_tools: true }];
+  if (url.includes("/tools/catalog")) return [{ name: "read_file", description: "Lee un fichero", input_schema: {}, sensitive: false, core: false, modules: ["Archivador"] }, { name: "delete_file", description: "Borra", input_schema: {}, sensitive: true, core: false, modules: [] }];
+  if (url.includes("default-prompt")) return { system_prompt: "Predeterminado" };
+  if (url.includes("/prompt-preview")) return { version: 2, layers: [{ source: "base", text: "Prompt" }, { source: "rules", text: "Reglas fijas" }], system: "Prompt\n\nReglas fijas", tools: [{ name: "read_file", description: "Lee", input_schema: {} }], memory: "- Recuerdo" };
   if (url.includes("/role-catalog")) return { groups: [] };
   if (url.includes("/departments")) return [{ id: "d1", name: "Finanzas", color: "#10b981" }];
   if (url.includes("/routine")) return { rules: {}, defaults: { resting: "break", meeting: "boardroom", reading: "cabinet" }, targets: ["break", "boardroom", "cabinet", "workplace"] };
@@ -92,8 +96,8 @@ describe("pantallas", () => {
     const user = userEvent.setup();
     render(wrap(<AgentProfile agentId="a1" />));
     useOffice.setState({ profileTab: "profile" });
-    expect(await screen.findByText(/Prompt de sistema/)).toBeInTheDocument();
-    for (const [tab, text] of [["Capacidades", "sin módulo en su sala"], ["Conocimiento", "Base"], ["Trabajo", "Presupuesto"], ["Rendimiento", "Aceptadas a la primera"], ["Coste", "Gasto por día"], ["Auditoría", /bucle/], ["Chat", /doc\.md, pág\. 2/]] as const) {
+    expect(await screen.findByText("Personalidad y tono")).toBeInTheDocument();
+    for (const [tab, text] of [["Prompt", "Reglas fijas"], ["Capacidades", "sin módulo en su sala"], ["Conocimiento", "Base"], ["Trabajo", "Presupuesto"], ["Rendimiento", "Aceptadas a la primera"], ["Coste", "Gasto por día"], ["Auditoría", /bucle/], ["Chat", /doc\.md, pág\. 2/]] as const) {
       await user.click(screen.getByRole("tab", { name: tab }));
       expect(await screen.findByText(text)).toBeInTheDocument();
     }
@@ -129,7 +133,7 @@ describe("pantallas", () => {
     await userEvent.selectOptions(screen.getByLabelText("Cargo"), "__other");
     await userEvent.type(screen.getByLabelText("Rol"), "seo");
     await userEvent.selectOptions(screen.getByLabelText("Tipo"), "pre_approval");
-    expect(screen.getByLabelText(/Herramientas/)).toBeInTheDocument();
+    expect((await screen.findAllByRole("checkbox", { name: /delete_file/ })).length).toBeGreaterThan(1);
   });
 
   it("conocimiento y ajustes", async () => {

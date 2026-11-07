@@ -42,13 +42,19 @@ export function AgentAvatar({ agent, color }: { agent: Agent; color: string }) {
   const lastClick = useRef(0);
   const phase = useMemo(() => agent.id.charCodeAt(0) + agent.id.charCodeAt(1), [agent.id]);
 
-  useFrame(() => {
+  const facing = useRef(0);
+
+  useFrame((_, delta) => {
     if (!body.current) return;
     const now = performance.now();
     const pose = walk ? poseAt(walk, now) : { x: agent.pos_x, z: agent.pos_y, walking: false, heading: 0 };
     const hop = pose.walking ? Math.abs(Math.sin(now / 90)) * 0.07 : Math.sin(now / 500 + phase) * 0.012;
     body.current.position.set(pose.x, Math.max(hop, 0), pose.z);
-    if (pose.walking) body.current.rotation.y = pose.heading;
+    const seated_at_desk = !pose.walking && agent.pos_x === agent.seat_x && agent.pos_y === agent.seat_y;
+    const wanted = seated_at_desk ? Math.PI : pose.heading;
+    const turn = Math.atan2(Math.sin(wanted - facing.current), Math.cos(wanted - facing.current));
+    facing.current += turn * Math.min(delta * 12, 1);
+    body.current.rotation.y = facing.current;
     const swing = pose.walking ? Math.sin(now / 90) * 0.6 : 0;
     if (legL.current) legL.current.rotation.x = swing;
     if (legR.current) legR.current.rotation.x = -swing;

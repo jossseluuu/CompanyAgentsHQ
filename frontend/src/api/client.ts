@@ -42,6 +42,7 @@ export const api = {
   patch: <T>(url: string, body: unknown) => send<T>("PATCH", url, body),
   put: <T>(url: string, body: unknown) => send<T>("PUT", url, body),
   del: (url: string) => send<void>("DELETE", url),
+  delete: <T>(url: string, body: unknown) => send<T>("DELETE", url, body),
   upload: <T>(url: string, file: File, extra: Record<string, string> = {}) => {
     const form = new FormData();
     form.append("file", file);

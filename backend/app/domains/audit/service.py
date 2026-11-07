@@ -130,6 +130,13 @@ async def agent_traces(db: AsyncSession, agent_id: uuid.UUID, limit: int = 30) -
     return list((await db.execute(stmt)).scalars())
 
 
+async def get_trace(db: AsyncSession, agent_id: uuid.UUID, trace_id: uuid.UUID) -> Trace:
+    trace = await db.get(Trace, trace_id)
+    if trace is None or trace.agent_id != agent_id:
+        raise NotFound("Traza")
+    return trace
+
+
 async def sample_traces(db: AsyncSession, company_id: uuid.UUID, limit: int = 20) -> list[Trace]:
     stmt = select(Trace).where(Trace.company_id == company_id).order_by(func.random()).limit(limit)
     return list((await db.execute(stmt)).scalars())

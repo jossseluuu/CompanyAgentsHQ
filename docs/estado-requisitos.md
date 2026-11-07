@@ -25,6 +25,10 @@ Probado el 1 y 2 de noviembre de 2026 con Ollama 0.40 y `bge-m3`, en una RTX 505
 
 Calidad, leída a mano: son pasadas sueltas, no una medida estadística. Con los prompts finales el boletín se redacta, pero el modelo se inventa detalles que nadie le dio, como notas de cata, y otra tarea describe fotografías que no existen. Revisa lo que escriba antes de usarlo. Las tareas que no se pueden hacer con las herramientas del equipo gastan devoluciones hasta llegar al dueño, que es lo previsto.
 
+## Edición de oficina y equipo
+
+Plano editable, muebles con tamaño y estética, traslado de puestos, página Equipo y vista del prompt completo ([ADR 0009](decisiones/0009-muebles-con-tamano-y-plano.md)). Probado con pruebas automáticas y en Edge con el LLM falso, en empresas nuevas. La migración `0002` se probó en ambos sentidos sobre una base de prueba, no sobre una empresa con uso real. No se ha vuelto a medir REN-01 con muebles grandes. El acceso a salas se aplica ahora a desplazamientos, `read_file`, `search_files`, `write_file` y `delete_file`; una ruta de paso aún puede cruzar una sala denegada con dos puertas. La vista del prompt no depende del proveedor, pero no se ha comprobado con un modelo real.
+
 ## Funcionales
 
 | Módulo | Hecho | Pendiente o parcial |
@@ -65,7 +69,7 @@ Calidad, leída a mano: son pasadas sueltas, no una medida estadística. Con los
 | SEG-01 a 06 | Hecho. SEG-03: en local, cookie Secure desactivada por HTTP |
 | SEG-09 | En CI, sin ejecutar: no hay remoto |
 | SEG-08, 10 | Sin hacer (D) |
-| TRA-01 a 04, 06 | Hecho. TRA-02 incluye disparador en la base de datos |
+| TRA-01 a 04, 06 | Hecho. TRA-02 incluye disparador en la base de datos; la única excepción es eliminar la empresa ([ADR 0010](decisiones/0010-eliminar-empresa.md)) |
 | TRA-05 | Sin borrado automático: se conserva todo (D) |
 | FIA-01 a 03, 05 | Hecho. La API ofrece `/health`; en Compose hay comprobación por servicio |
 | FIA-04 | Sin hacer (D) |

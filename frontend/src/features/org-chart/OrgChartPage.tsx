@@ -3,6 +3,8 @@ import { type FormEvent, useState } from "react";
 
 import { api } from "@/api/client";
 import type { AgentStatus } from "@/api/types";
+import { HireForm } from "@/features/team/HireForm";
+import { ToolPicker } from "@/features/team/ToolPicker";
 import { STATUS } from "@/office/status";
 import { Button, ErrorNote, Field, inputClass } from "@/shared/ui";
 import { useOffice } from "@/store/office";
@@ -34,90 +36,6 @@ function Branch({ node }: { node: Node }) {
       </button>
       {node.reports.length > 0 && <ul>{node.reports.map((n) => <Branch key={n.id} node={n} />)}</ul>}
     </li>
-  );
-}
-
-interface RoleGroup {
-  name: string;
-  roles: { key: string; code: string; title: string; description: string; model?: string; tools: string[] }[];
-}
-
-const OTHER_ROLE = "__other";
-const BASE_TOOLS = ["search_files", "read_file", "write_file", "search_knowledge", "ask_manager"];
-
-function HireForm() {
-  const client = useQueryClient();
-  const { data: catalog } = useQuery({ queryKey: ["role-catalog"], queryFn: () => api.get<{ groups: RoleGroup[] }>("/role-catalog") });
-  const [choice, setChoice] = useState("");
-  const chosen = catalog?.groups.flatMap((g) => g.roles).find((r) => r.key === choice);
-  const snapshot = useOffice((s) => s.snapshot);
-  const agents = useOffice((s) => s.agents);
-  const [form, setForm] = useState({ name: "", role: "", home_room_id: "", manager_id: "", department_id: "", model: "fast" });
-  const [error, setError] = useState<unknown>(null);
-  const submit = async (event: FormEvent) => {
-    event.preventDefault();
-    setError(null);
-    try {
-      await api.post("/agents", {
-        ...form,
-        manager_id: form.manager_id || null,
-        home_room_id: chosen ? null : form.home_room_id,
-        department_id: chosen ? null : form.department_id || null,
-        role: chosen?.key ?? form.role,
-        model: chosen?.model ?? form.model,
-        tools: chosen?.tools ?? BASE_TOOLS,
-      });
-      setForm({ ...form, name: "", role: "" });
-      setChoice("");
-      await client.invalidateQueries({ queryKey: ["org"] });
-      await client.invalidateQueries({ queryKey: ["snapshot"] });
-    } catch (failure) {
-      setError(failure);
-    }
-  };
-  return (
-    <form onSubmit={submit} className="space-y-2 rounded bg-ink-soft p-3">
-      <h2 className="font-semibold">{t("Contratar agente")}</h2>
-      <Field label={t("Nombre")}><input required className={inputClass} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
-      <Field label={t("Cargo")}>
-        <select required className={inputClass} value={choice} onChange={(e) => setChoice(e.target.value)}>
-          <option value="">{t("Elige cargo")}</option>
-          {catalog?.groups.map((group) => (
-            <optgroup key={group.name} label={group.name}>
-              {group.roles.map((r) => <option key={r.key} value={r.key}>{r.code} · {r.title}</option>)}
-            </optgroup>
-          ))}
-          <option value={OTHER_ROLE}>{t("Otro cargo…")}</option>
-        </select>
-      </Field>
-      {chosen && <p className="text-xs text-slate-300">{chosen.description} {t("Irá a la sala de su área.")}</p>}
-      {choice === OTHER_ROLE && <Field label={t("Rol")}><input required className={inputClass} placeholder={t("seo, contable…")} value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} /></Field>}
-      {!chosen && (
-        <>
-      <Field label={t("Sala base")}>
-        <select required className={inputClass} value={form.home_room_id} onChange={(e) => setForm({ ...form, home_room_id: e.target.value })}>
-          <option value="">{t("Elige sala")}</option>
-          {snapshot?.office.rooms.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
-        </select>
-      </Field>
-      <Field label={t("Departamento")}>
-        <select className={inputClass} value={form.department_id} onChange={(e) => setForm({ ...form, department_id: e.target.value })}>
-          <option value="">{t("Sin departamento")}</option>
-          {snapshot?.departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-        </select>
-      </Field>
-        </>
-      )}
-      <Field label={t("Jefe")}>
-        <select className={inputClass} value={form.manager_id} onChange={(e) => setForm({ ...form, manager_id: e.target.value })}>
-          <option value="">{t("Sin jefe")}</option>
-          {Object.values(agents).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-        </select>
-      </Field>
-      <Field label={t("Modelo")}><input className={inputClass} value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} /></Field>
-      <ErrorNote error={error} />
-      <Button type="submit" tone="primary">{t("Contratar")}</Button>
-    </form>
   );
 }
 
@@ -182,14 +100,14 @@ function Supervisions() {
   const client = useQueryClient();
   const agents = useOffice((s) => s.agents);
   const { data = [] } = useQuery({ queryKey: ["supervisions"], queryFn: () => api.get<Supervision[]>("/supervisions") });
-  const [form, setForm] = useState({ supervisor_id: "", supervised_id: "", kind: "review", tools: "" });
+  const [form, setForm] = useState({ supervisor_id: "", supervised_id: "", kind: "review", tools: [] as string[] });
   const [error, setError] = useState<unknown>(null);
   const refresh = () => client.invalidateQueries({ queryKey: ["supervisions"] });
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setError(null);
     try {
-      await api.post("/supervisions", { ...form, tools: form.tools.split(",").map((t) => t.trim()).filter(Boolean) });
+      await api.post("/supervisions", form);
       await refresh();
     } catch (failure) {
       setError(failure);
@@ -216,9 +134,7 @@ function Supervisions() {
           </select>
         </Field>
         {form.kind === "pre_approval" && (
-          <Field label={t("Herramientas (separadas por comas)")}>
-            <input className={inputClass} value={form.tools} onChange={(e) => setForm({ ...form, tools: e.target.value })} />
-          </Field>
+          <ToolPicker value={form.tools} onChange={(tools) => setForm({ ...form, tools })} />
         )}
         <ErrorNote error={error} />
         <Button type="submit">{t("Añadir")}</Button>

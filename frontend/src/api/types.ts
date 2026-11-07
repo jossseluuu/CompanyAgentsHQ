@@ -49,6 +49,35 @@ export interface FurnitureItem {
   grid_y: number;
   rotation: number;
   interactive: boolean;
+  width: number;
+  depth: number;
+  variant: string;
+}
+
+export interface FurnitureModel {
+  key: string;
+  group?: string;
+  sizes: number[][];
+  variants: string[];
+}
+
+export interface ToolInfo {
+  name: string;
+  description: string;
+  input_schema: unknown;
+  sensitive: boolean;
+  core: boolean;
+  group?: string;
+  modules: string[];
+  module_keys?: string[];
+}
+
+export interface PromptPreview {
+  version: number;
+  layers: { source: string; text: string }[];
+  system: string;
+  tools: { name: string; description: string; input_schema: unknown }[];
+  memory: string;
 }
 
 export interface Room {

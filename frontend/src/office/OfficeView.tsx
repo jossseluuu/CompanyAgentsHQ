@@ -11,6 +11,7 @@ import { useOffice } from "@/store/office";
 import { FlatMap, hasWebGL } from "./FlatMap";
 import { OfficeEditor } from "./OfficeEditor";
 import { OfficeScene, type ScreenToGrid } from "./OfficeScene";
+import { PlanEditor } from "./PlanEditor";
 import { STATUS } from "./status";
 import { t } from "@/shared/i18n";
 
@@ -23,6 +24,7 @@ export function OfficeView() {
   const highlight = useOffice((s) => s.highlightDepartment);
   const problems = useOffice((s) => s.problemsOnly);
   const editing = useOffice((s) => s.editing);
+  const editView = useOffice((s) => s.editView);
   const picker = useRef<ScreenToGrid | null>(null);
   const [dropError, setDropError] = useState<unknown>(null);
   const queryClient = useQueryClient();
@@ -60,7 +62,7 @@ export function OfficeView() {
 
   return (
     <div className="flex h-full min-h-0">
-      <nav aria-label={t("Salas y agentes")} className="w-56 shrink-0 space-y-3 overflow-y-auto border-r border-ink-line p-2 text-sm">
+      <nav aria-label={t("Salas y agentes")} hidden={editing} className={`w-56 shrink-0 space-y-3 overflow-y-auto border-r border-ink-line p-2 text-sm ${editing ? "hidden" : ""}`}>
         <section>
           <h2 className="mb-1 font-semibold text-slate-200">{t("Salas")}</h2>
           <ul>
@@ -117,8 +119,8 @@ export function OfficeView() {
         onDragOver={(event) => event.preventDefault()}
         onDrop={onDrop}
       >
-        {webgl ? <OfficeScene picker={picker} /> : <FlatMap className="h-full w-full" />}
-        {webgl && (
+        {editing && (editView === "plan" || !webgl) ? <PlanEditor /> : webgl ? <OfficeScene picker={picker} /> : <FlatMap className="h-full w-full" />}
+        {webgl && !editing && (
           <div className="absolute right-2 top-2 w-44 rounded border border-ink-line bg-slate-900/80 p-1">
             <FlatMap />
           </div>

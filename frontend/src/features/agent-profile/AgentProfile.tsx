@@ -5,12 +5,18 @@ import { api } from "@/api/client";
 import type { Anomaly, Citation, Message, Task, Trace } from "@/api/types";
 import { STATUS } from "@/office/status";
 import type { Tile } from "@/office/pathAnimator";
+import { ToolPicker } from "@/features/team/ToolPicker";
 import { Badge, BarChart, Button, Empty, ErrorNote, Field, inputClass, statusLabel, Tabs } from "@/shared/ui";
 import { useOffice } from "@/store/office";
 import { t } from "@/shared/i18n";
 
+import { PromptTab } from "./PromptTab";
+
+export { promptDiff } from "./PromptTab";
+
 const TABS = [
   ["profile", t("Perfil")],
+  ["prompt", t("Prompt")],
   ["capabilities", t("Capacidades")],
   ["knowledge", t("Conocimiento")],
   ["work", t("Trabajo")],
@@ -61,26 +67,13 @@ function RoutineForm({ agentId }: { agentId: string }) {
 }
 
 function ProfileTab({ data, refresh }: { data: Profile; refresh: () => void }) {
-  const [prompt, setPrompt] = useState(data.profile.prompt.system_prompt);
   const [error, setError] = useState<unknown>(null);
   const agent = data.agent;
   const rooms = useOffice((s) => s.snapshot?.office.rooms ?? []);
-  const versions = useQuery({
-    queryKey: ["prompt-versions", agent.id],
-    queryFn: () => api.get<{ version: number; note: string; system_prompt: string }[]>(`/agents/${agent.id}/prompt-versions`),
-  });
-  const savePrompt = async (body: object) => {
-    try {
-      await api.post(`/agents/${agent.id}/prompt-versions`, body);
-      await versions.refetch();
-      refresh();
-    } catch (failure) {
-      setError(failure);
-    }
-  };
   const colleagues = Object.values(useOffice.getState().agents);
   const departments = useOffice.getState().snapshot?.departments ?? [];
   const update = (body: object) => api.patch(`/agents/${agent.id}`, body).then(refresh).catch(setError);
+  const local = useQuery({ queryKey: ["company-ai"], queryFn: () => api.get<{ ollama_models: string[] }>("/company/ai") });
   return (
     <div className="space-y-2 text-sm">
       <p>{t("Rol:")} {agent.role}</p>
@@ -104,12 +97,12 @@ function ProfileTab({ data, refresh }: { data: Profile; refresh: () => void }) {
       <Field label={t("Presupuesto diario (€)")}>
         <input type="number" step="0.1" min="0" className={inputClass} defaultValue={agent.daily_budget_eur} onBlur={(e) => update({ daily_budget_eur: e.target.value })} />
       </Field>
-      <Field label={t("Herramientas (separadas por comas)")}>
-        <input className={inputClass} defaultValue={(agent.tools ?? []).join(", ")} onBlur={(e) => update({ tools: e.target.value.split(",").map((x) => x.trim()).filter(Boolean) })} />
-      </Field>
       <Field label={t("Modelo (fast, powerful o proveedor:modelo)")}>
-        <input className={inputClass} defaultValue={agent.model} onBlur={(e) => update({ model: e.target.value })} />
+        <input list="agent-models" className={inputClass} defaultValue={agent.model} onBlur={(e) => update({ model: e.target.value })} />
       </Field>
+      <datalist id="agent-models">
+        {["fast", "powerful", ...(local.data?.ollama_models ?? []).map((m) => `ollama:${m}`)].map((model) => <option key={model} value={model} />)}
+      </datalist>
       <Field label={t("Temperatura (solo modelos locales)")}>
         <input type="number" step="0.1" min="0" max="1" className={inputClass} defaultValue={agent.temperature} onBlur={(e) => update({ temperature: Number(e.target.value) })} />
       </Field>
@@ -122,43 +115,9 @@ function ProfileTab({ data, refresh }: { data: Profile; refresh: () => void }) {
         <textarea className={inputClass} placeholder={t("Directa y cercana")} defaultValue={agent.personality} onBlur={(e) => update({ personality: e.target.value })} />
       </Field>
       <RoutineForm agentId={agent.id} />
-      <Field label={t("Prompt de sistema (versión {0})", data.profile.prompt.version)}>
-        <textarea className={`${inputClass} h-48`} value={prompt} onChange={(e) => setPrompt(e.target.value)} />
-      </Field>
       <ErrorNote error={error} />
-      <Button tone="primary" onClick={() => savePrompt({ system_prompt: prompt, note: t("Editado desde la ficha") })}>{t("Guardar versión")}</Button>
-      <details>
-        <summary>{t("Historial de versiones")}</summary>
-        {versions.data?.map((entry) => (
-          <div key={entry.version} className="mt-1 rounded bg-ink-soft p-2">
-            <p className="flex items-center justify-between">
-              v{entry.version} {entry.note}
-              <Button onClick={() => savePrompt({ restore_version: entry.version })}>{t("Restaurar")}</Button>
-            </p>
-            <details>
-              <summary className="text-xs">{t("Comparar con el actual")}</summary>
-              <PromptDiff before={entry.system_prompt} after={prompt} />
-            </details>
-          </div>
-        ))}
-      </details>
     </div>
   );
-}
-
-export function promptDiff(before: string, after: string) {
-  const old = new Set(before.split("\n"));
-  const current = new Set(after.split("\n"));
-  return [
-    ...before.split("\n").filter((l) => !current.has(l)).map((text) => ({ sign: "−", text })),
-    ...after.split("\n").filter((l) => !old.has(l)).map((text) => ({ sign: "+", text })),
-  ];
-}
-
-function PromptDiff({ before, after }: { before: string; after: string }) {
-  const lines = promptDiff(before, after);
-  if (!lines.length) return <p className="text-xs">{t("Sin cambios")}</p>;
-  return <pre className="markdown text-xs">{lines.map((l) => `${l.sign} ${l.text}`).join("\n")}</pre>;
 }
 
 function ChatTab({ agentId }: { agentId: string }) {
@@ -231,13 +190,30 @@ function TaskList({ title, tasks }: { title: string; tasks: Task[] }) {
   );
 }
 
-function TraceView({ trace }: { trace: Trace }) {
+/** La llamada exacta al modelo: se carga al abrirla porque puede ocupar mucho. */
+function TraceContext({ agentId, traceId }: { agentId: string; traceId: string }) {
+  const [open, setOpen] = useState(false);
+  const { data } = useQuery({
+    queryKey: ["trace", traceId],
+    enabled: open,
+    queryFn: () => api.get<{ context: Record<string, unknown> }>(`/agents/${agentId}/traces/${traceId}`),
+  });
+  return (
+    <details onToggle={(event) => setOpen(event.currentTarget.open)}>
+      <summary className="cursor-pointer text-xs">{t("Ver lo que se envió al modelo")}</summary>
+      {data && <pre className="markdown whitespace-pre-wrap text-xs">{JSON.stringify(data.context, null, 2)}</pre>}
+    </details>
+  );
+}
+
+function TraceView({ agentId, trace }: { agentId: string; trace: Trace }) {
   return (
     <details className="rounded bg-ink-soft p-2">
       <summary>{trace.kind} {t("paso")} {trace.step} · {trace.model} · v{trace.prompt_version} · {trace.input_tokens + trace.output_tokens} {t("tokens ·")} {trace.latency_ms} {t("ms")}</summary>
       <p className="markdown mt-1 text-xs">{trace.output}</p>
       {trace.tool_calls.map((call, index) => <p key={index} className="text-xs text-slate-300">{t("Herramienta:")} {call.name}</p>)}
       {trace.rag_chunk_ids.length > 0 && <p className="text-xs text-slate-300">{trace.rag_chunk_ids.length} {t("fragmentos RAG usados")}</p>}
+      <TraceContext agentId={agentId} traceId={trace.id} />
     </details>
   );
 }
@@ -288,24 +264,22 @@ export function AgentProfile({ agentId }: { agentId: string }) {
       <Tabs tabs={TABS} active={tab} onChange={(key) => openAgent(agentId, key)} />
       <div className="min-h-0 flex-1 overflow-y-auto p-2">
         {tab === "chat" && <ChatTab agentId={agentId} />}
-        {data && tab === "profile" && <ProfileTab key={data.profile.prompt.version} data={data} refresh={refresh} />}
+        {data && data.agent.id === agentId && tab === "profile" && <ProfileTab key={agentId} data={data} refresh={refresh} />}
+        {data && data.agent.id === agentId && tab === "prompt" && (
+          <PromptTab key={`${agentId}:${data.profile.prompt.version}`} agentId={agentId} current={data.profile.prompt.system_prompt} version={data.profile.prompt.version} refresh={refresh} />
+        )}
         {data && tab === "capabilities" && (
           <div className="space-y-2 text-sm">
             <h3 className="font-semibold">{t("Herramientas")}</h3>
-            {data.agent.tools.length === 0 && <Empty>{t("Ninguna")}</Empty>}
-            {data.capabilities.tools.map((tool) => (
-              <label key={tool} className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked
-                  onChange={async () => {
-                    await api.patch(`/agents/${agentId}`, { tools: data.capabilities.tools.filter((t) => t !== tool) });
-                    refresh();
-                  }}
-                />
-                {tool} {!data.capabilities.usable_now.includes(tool) && <Badge>{t("sin módulo en su sala")}</Badge>}
-              </label>
-            ))}
+            <ToolPicker
+              value={data.capabilities.tools}
+              usable={data.capabilities.usable_now}
+              roomId={data.agent.home_room_id}
+              onChange={async (tools) => {
+                await api.patch(`/agents/${agentId}`, { tools });
+                refresh();
+              }}
+            />
             <p>{t("Presupuesto diario:")} {data.cost.budget_eur.toFixed(2)} €</p>
             <h3 className="font-semibold">{t("Supervisión")}</h3>
             {data.capabilities.supervised_by.map((s, index) => <p key={index}>{s.kind}: {useOffice.getState().agents[s.supervisor_id]?.name}</p>)}
@@ -365,7 +339,7 @@ export function AgentProfile({ agentId }: { agentId: string }) {
             {data.audit.anomalies.length === 0 && <Empty>{t("Ninguna")}</Empty>}
             {data.audit.anomalies.map((item) => <p key={item.id}>🛡 {item.rule} · {item.severity} · {item.status}</p>)}
             <h3 className="font-semibold">{t("Trazas")}</h3>
-            {data.audit.traces.map((trace) => <TraceView key={trace.id} trace={trace} />)}
+            {data.audit.traces.map((trace) => <TraceView key={trace.id} agentId={agentId} trace={trace} />)}
           </div>
         )}
       </div>

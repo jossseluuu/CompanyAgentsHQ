@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 
 from app.core.db import Db
 from app.core.util import row
+from app.domains.agents import service as agents_service
 from app.domains.company.service import CompanyDep
 from app.domains.knowledge import service as knowledge_service
 from app.domains.office import service
@@ -39,10 +40,22 @@ class FurnitureMove(BaseModel):
     grid_x: int = Field(ge=0)
     grid_y: int = Field(ge=0)
     rotation: int = Field(default=0, ge=0, lt=360)
+    width: int | None = Field(default=None, ge=1, le=8)
+    depth: int | None = Field(default=None, ge=1, le=8)
+    variant: str | None = None
+
+    @property
+    def size(self) -> tuple[int, int] | None:
+        return (self.width, self.depth) if self.width and self.depth else None
 
 
 class FurniturePlace(FurnitureMove):
     model_key: str
+
+
+class SeatIn(BaseModel):
+    grid_x: int = Field(ge=0)
+    grid_y: int = Field(ge=0)
 
 
 class ModuleIn(BaseModel):
@@ -86,14 +99,18 @@ async def patch_room(room_id: uuid.UUID, body: RoomPatch, company: CompanyDep, d
 
 
 @router.get("/furniture/catalog")
-async def furniture_catalog() -> list[str]:
+async def furniture_catalog() -> list[dict[str, Any]]:
     return service.furniture_catalog()
 
 
 @router.post("/rooms/{room_id}/furniture", status_code=201)
 async def place_furniture(room_id: uuid.UUID, body: FurniturePlace, company: CompanyDep, db: Db) -> dict[str, Any]:
     room = await service.get_room(db, company.id, room_id)
-    return row(await service.place_furniture(db, room, body.model_key, body.grid_x, body.grid_y, body.rotation))
+    return row(
+        await service.place_furniture(
+            db, room, body.model_key, body.grid_x, body.grid_y, body.rotation, body.size, body.variant or "classic"
+        )
+    )
 
 
 @router.delete("/furniture/{furniture_id}", status_code=204)
@@ -103,7 +120,11 @@ async def remove_furniture(furniture_id: uuid.UUID, company: CompanyDep, db: Db)
 
 @router.patch("/furniture/{furniture_id}")
 async def move_furniture(furniture_id: uuid.UUID, body: FurnitureMove, company: CompanyDep, db: Db) -> dict[str, Any]:
-    return row(await service.move_furniture(db, company.id, furniture_id, body.grid_x, body.grid_y, body.rotation))
+    return row(
+        await service.move_furniture(
+            db, company.id, furniture_id, body.grid_x, body.grid_y, body.rotation, body.size, body.variant
+        )
+    )
 
 
 @router.delete("/rooms/{room_id}", status_code=204)
@@ -131,8 +152,28 @@ async def configure(room_id: uuid.UUID, key: str, config: dict[str, Any], compan
 @router.put("/rooms/{room_id}/access")
 async def access(room_id: uuid.UUID, body: Access, company: CompanyDep, db: Db) -> dict[str, bool]:
     room = await service.get_room(db, company.id, room_id)
-    await service.set_access(db, room, body.agent_id, body.can_enter, body.can_use_tools)
+    agent = await agents_service.get(db, company.id, body.agent_id)
+    await service.set_access(db, room, agent, body.can_enter, body.can_use_tools)
     return {"ok": True}
+
+
+@router.get("/rooms/{room_id}/access")
+async def access_list(room_id: uuid.UUID, company: CompanyDep, db: Db) -> list[dict[str, Any]]:
+    return await service.room_access(db, await service.get_room(db, company.id, room_id))
+
+
+@router.delete("/rooms/{room_id}/access/{agent_id}", status_code=204)
+async def clear_access(room_id: uuid.UUID, agent_id: uuid.UUID, company: CompanyDep, db: Db) -> None:
+    room = await service.get_room(db, company.id, room_id)
+    await service.clear_access(db, room, await agents_service.get(db, company.id, agent_id))
+
+
+@router.put("/agents/{agent_id}/seat")
+async def seat(agent_id: uuid.UUID, body: SeatIn, company: CompanyDep, db: Db) -> dict[str, Any]:
+    agent = await agents_service.get(db, company.id, agent_id)
+    tile = (body.grid_x, body.grid_y)
+    await service.relocate(db, agent, await service.room_at(db, company.id, tile), tile)
+    return row(agent)
 
 
 @router.get("/agents/{agent_id}/path")

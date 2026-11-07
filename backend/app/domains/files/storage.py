@@ -10,6 +10,7 @@ from app.core.config import get_settings
 class Storage(Protocol):
     async def put(self, key: str, data: bytes, mime: str) -> None: ...
     async def get(self, key: str) -> bytes: ...
+    async def delete(self, key: str) -> None: ...
 
 
 class LocalStorage:
@@ -32,6 +33,9 @@ class LocalStorage:
 
     async def get(self, key: str) -> bytes:
         return await asyncio.to_thread(self._path(key).read_bytes)
+
+    async def delete(self, key: str) -> None:
+        await asyncio.to_thread(self._path(key).unlink, True)
 
 
 class S3Storage:
@@ -69,6 +73,9 @@ class S3Storage:
             return body
 
         return await asyncio.to_thread(read)
+
+    async def delete(self, key: str) -> None:
+        await asyncio.to_thread(self.client.delete_object, Bucket=self.bucket, Key=key)
 
 
 _storage: Storage | None = None

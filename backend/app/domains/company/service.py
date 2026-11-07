@@ -150,7 +150,7 @@ async def place_role(db: AsyncSession, company_id: uuid.UUID, role: str) -> dict
     group = next((g for g in agents_service.role_catalog()["groups"] if any(r["key"] == role for r in g["roles"])), None)
     if group is None:
         return {}
-    area = group["area"]
+    area = agents_service.find_role(role).get("area") or group["area"]  # type: ignore[union-attr]
     stmt = select(Department).where(
         Department.company_id == company_id, Department.name == area["department"]
     )
@@ -164,8 +164,8 @@ async def place_role(db: AsyncSession, company_id: uuid.UUID, role: str) -> dict
     room = await office_service.room_by_slug(db, company_id, area["room"])
     if room is None and "new_room" in area:
         spec = area["new_room"]
-        free = await office_service.is_free(db, company_id, spec["x"], spec["y"], spec["w"], spec["h"])
-        x, y = (spec["x"], spec["y"]) if free else await office_service.free_spot(db, company_id)
+        free = "x" in spec and await office_service.is_free(db, company_id, spec["x"], spec["y"], spec["w"], spec["h"])
+        x, y = (spec["x"], spec["y"]) if free else await office_service.free_spot_for(db, company_id, spec["w"], spec["h"])
         room = await office_service.create_room(
             db,
             company_id,

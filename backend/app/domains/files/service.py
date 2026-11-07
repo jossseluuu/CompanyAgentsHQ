@@ -193,3 +193,14 @@ async def search(
 def _snippet(text: str, query: str) -> str:
     at = text.lower().find(query.lower())
     return text[max(at - 80, 0) : at + 160] if at >= 0 else text[:200]
+
+
+async def erase_stored(keys: list[str]) -> int:
+    """Borra el contenido de los ficheros; devuelve cuántos no se pudieron borrar."""
+    failed = 0
+    for key in keys:
+        try:
+            await storage().delete(key)
+        except (OSError, ValueError):
+            failed += 1
+    return failed

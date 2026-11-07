@@ -1,0 +1,699 @@
+# Catálogo completo de cargos, tal como lo definió el dueño. Formato:
+# ## área | departamento | sala | color | herramientas extra
+# título | indicativo
+
+## Gobierno corporativo y órganos de administración | Consejo | consejo | #fde68a | read_finance, read_audit
+Presidente de la Junta General de Accionistas | PRESJA
+Vicepresidente de la Junta General de Accionistas | VPREJA
+Accionista mayoritario | ACCMAY
+Accionista minoritario | ACCMIN
+Presidente del Consejo de Administración | PRESCA
+Vicepresidente del Consejo de Administración | VPRECA
+Consejero delegado | CONDEL
+Consejero ejecutivo | CONEJE
+Consejero independiente | CONIND
+Consejero dominical | CONDOM
+Secretario del Consejo de Administración | SECCON
+Vicesecretario del Consejo | VSECON
+Consejero asesor | CONASE
+Presidente del Comité de Auditoría | PRECAU
+Vocal del Comité de Auditoría | VOCAUD
+Presidente del Comité de Riesgos | PRECRI
+Vocal del Comité de Riesgos | VOCRIE
+Presidente del Comité de Nombramientos | PRENOM
+Vocal del Comité de Nombramientos | VONOMB
+Presidente del Comité de Retribuciones | PRERET
+Vocal del Comité de Retribuciones | VORETR
+Presidente del Comité de Gobierno Corporativo | PREGCO
+Vocal del Comité de Gobierno Corporativo | VOGCOR
+Defensor del accionista | DEFACC
+Interventor corporativo | INTCOR
+Auditor externo | AUDEXT
+
+## Alta dirección: C-Suite | Dirección | despacho-ceo | #c7d2fe | web_search
+Director ejecutivo / Chief Executive Officer | CEO
+Presidente ejecutivo | PREJEC
+Vicepresidente ejecutivo | VPREJ
+Director general | DIRGEN
+Director general adjunto | DIRGAD
+Director general corporativo | DIRGCO
+Director de operaciones / Chief Operating Officer | COO
+Director financiero / Chief Financial Officer | CFO
+Director tecnológico / Chief Technology Officer | CTO
+Director de sistemas de información / Chief Information Officer | CIO
+Director de información y datos | CDODAT
+Director de seguridad / Chief Security Officer | CSO
+Director de recursos humanos / Chief Human Resources Officer | CHRO
+Director de marketing / Chief Marketing Officer | CMO
+Director comercial / Chief Commercial Officer | CCO
+Director de estrategia / Chief Strategy Officer | CSTRAT
+Director jurídico / General Counsel | GENCOU
+Director de cumplimiento / Chief Compliance Officer | CCOCMP
+Director de riesgos / Chief Risk Officer | CRO
+Director de sostenibilidad | CSOST
+Director de transformación | CTRANS
+Director de innovación | C INNO
+Director de comunicación | CCOMU
+Director de experiencia del cliente | CCX
+Director de producto | CPROD
+Director de cadena de suministro | CSUPP
+Director de seguridad de la información | CISO
+Director de privacidad | CPOPRI
+Director de calidad corporativa | CQUAL
+Director de auditoría interna | CAUDIN
+
+## Dirección corporativa y gabinete de dirección | Dirección corporativa | direccion-corporativa | #ddd6fe | web_search
+Jefe de gabinete de presidencia | JGEPRE
+Jefe de gabinete de dirección general | JGEDIG
+Director de oficina de presidencia | DOPRES
+Director de planificación corporativa | DPLCOR
+Director de desarrollo corporativo | DDECOR
+Director de relaciones institucionales | DREINS
+Director de relaciones con inversores | DREINV
+Director de asuntos públicos | DASPUB
+Director de gobierno corporativo | DGOCOR
+Director de proyectos estratégicos | DPROES
+Director de expansión corporativa | DEXCOR
+Director de integración empresarial | DINTEM
+Director de gestión del cambio | DGECAM
+Director de excelencia empresarial | DELEXC
+Director de control corporativo | DCOCOR
+Director de coordinación ejecutiva | DCOEJE
+Director de planificación estratégica | DPLSTR
+Director de inteligencia empresarial | DINEEM
+Director de fusiones y adquisiciones | DFUSAD
+Director de alianzas estratégicas | DALIET
+
+## Dirección financiera y contabilidad | Finanzas | finanzas | #a7f3d0 | read_finance
+Director financiero departamental | DIRFIN
+Subdirector financiero | SUBFIN
+Gerente financiero | GERFIN
+Responsable de finanzas | RESFIN
+Jefe de administración financiera | JADFIN
+Jefe de contabilidad | JEFCON
+Responsable de contabilidad | RESCON
+Coordinador financiero | COORFI
+Supervisor financiero | SUPFIN
+Controller financiero | CONFIN
+Controller de gestión | CONGES
+Analista financiero sénior | ANAFIS
+Analista financiero | ANAFIN
+Analista de inversiones | ANAINV
+Analista de tesorería | ANATES
+Analista de costes | ANACOS
+Analista presupuestario | ANAPRE
+Analista de riesgos financieros | ANARIF
+Técnico financiero | TECFIN
+Técnico contable | TECCON
+Técnico de tesorería | TECTES
+Técnico de facturación | TECFAC
+Técnico de cobros | TECCOB
+Técnico de pagos | TECPAG
+Técnico de presupuestos | TECPRE
+Auxiliar contable | AUXCON
+Auxiliar financiero | AUXFIN
+Auxiliar de tesorería | AUXTES
+Auxiliar de facturación | AUXFAC
+Auxiliar de cobros | AUXCOB
+Auxiliar de pagos | AUXPAG
+Administrativo financiero | ADFINA
+Administrativo contable | ADCONT
+Becario de finanzas | BECFIN
+Becario de contabilidad | BECCON
+
+## Administración y servicios generales | Administración | administracion | #e2e8f0 |
+Director administrativo | DIRADM
+Subdirector administrativo | SUBADM
+Gerente administrativo | GERADM
+Jefe de administración | JEFADM
+Responsable administrativo | RESADM
+Coordinador administrativo | COOADM
+Supervisor administrativo | SUPADM
+Analista administrativo | ANAADM
+Técnico administrativo | TECADM
+Administrativo sénior | ADMSEN
+Administrativo | ADMINI
+Auxiliar administrativo | AUXADM
+Asistente de dirección | ASIDIR
+Secretario ejecutivo | SECEXE
+Secretario administrativo | SECADM
+Recepcionista | RECEP
+Telefonista | TELEF
+Gestor documental | GESDOC
+Técnico de archivo | TECARC
+Auxiliar de archivo | AUXARC
+Mensajero interno | MENINT
+Ordenanza | ORDEN
+Conserje | CONSER
+Personal de reprografía | REPROG
+Personal de servicios generales | SERGEN
+Becario administrativo | BECADM
+
+## Recursos humanos y talento | Recursos humanos | recursos-humanos | #e9d5ff |
+Director de recursos humanos | DIRRHH
+Subdirector de recursos humanos | SUBRHH
+Gerente de recursos humanos | GERRHH
+Jefe de personal | JEFPER
+Responsable de talento | RESTAL
+Responsable de selección | RESSEL
+Responsable de formación | RESFOR
+Responsable de compensación | RESCOM
+Responsable de relaciones laborales | RESREL
+Responsable de desarrollo profesional | RESDEP
+Coordinador de recursos humanos | COORRH
+Coordinador de selección | COOSEL
+Coordinador de formación | COOFOR
+Coordinador de nóminas | COONOM
+Supervisor de personal | SUPPER
+Analista de recursos humanos | ANARHH
+Analista de selección | ANASEL
+Analista de formación | ANAFOR
+Analista de nóminas | ANANOM
+Técnico de recursos humanos | TECRHH
+Técnico de selección | TECSEL
+Técnico de formación | TECFOR
+Técnico de nóminas | TECNOM
+Técnico de prevención laboral | TECPRL
+Administrativo de personal | ADMPER
+Auxiliar de recursos humanos | AUXRHH
+Auxiliar de nóminas | AUXNOM
+Asistente de selección | ASISEL
+Becario de recursos humanos | BECRHH
+
+## Departamento comercial y ventas | Comercial | comercial | #fecaca | web_search
+Director comercial | DIRCOM
+Subdirector comercial | SUBCOM
+Gerente comercial | GERCOM
+Director de ventas | DIRVEN
+Gerente de ventas | GERVEN
+Jefe de ventas | JEFVEN
+Responsable comercial | RESCOMV
+Responsable de cuentas estratégicas | RESCAE
+Responsable de grandes cuentas | RESGRC
+Responsable de ventas nacionales | RESVEN
+Responsable de ventas internacionales | RESVIN
+Coordinador comercial | COORCV
+Coordinador de ventas | COORVE
+Supervisor comercial | SUPCOM
+Supervisor de ventas | SUPVEN
+Ejecutivo de cuentas | EJECUE
+Ejecutivo de grandes cuentas | EJEGRC
+Ejecutivo comercial sénior | EJECOS
+Ejecutivo comercial | EJECOM
+Asesor comercial sénior | ASECOMS
+Asesor comercial | ASECOM
+Representante comercial | REPCOM
+Agente comercial | AGECOM
+Delegado comercial | DELECO
+Vendedor especializado | VENDES
+Vendedor | VENDED
+Promotor comercial | PROMCO
+Teleoperador comercial | TELECO
+Asistente comercial | ASICOM
+Administrativo comercial | ADCOM
+Auxiliar comercial | AUXCOM
+Becario comercial | BECCOM
+
+## Marketing, publicidad y comunicación | Marketing | marketing | #fbcfe8 | web_search
+Director de marketing | DIRMAR
+Subdirector de marketing | SUBMAR
+Gerente de marketing | GERMAR
+Jefe de marketing | JEFMAR
+Responsable de marca | RESMAR
+Responsable de publicidad | RESPUB
+Responsable de comunicación | RESCOMU
+Responsable de marketing digital | RESDIG
+Responsable de redes sociales | RESRED
+Responsable de contenidos | RESCONM
+Coordinador de marketing | COOMAR
+Coordinador de campañas | COOCAM
+Coordinador de comunicación | COOCOM
+Supervisor de marketing | SUPMAR
+Analista de marketing | ANAMAR
+Analista de mercado | ANAMER
+Analista de publicidad | ANAPUB
+Especialista SEO | ESPSEO
+Especialista SEM | ESPSEM
+Especialista en redes sociales | ESPRED
+Especialista en contenidos | ESPCON
+Diseñador gráfico | DISGRA
+Diseñador multimedia | DISMUL
+Redactor publicitario | REDPUB
+Community manager | COMMAN
+Gestor de contenidos | GESCON
+Técnico de marketing | TECMAR
+Técnico audiovisual | TECAVI
+Asistente de marketing | ASIMAR
+Auxiliar de marketing | AUXMAR
+Becario de marketing | BECMAR
+
+## Tecnología, informática y sistemas | Tecnología | tecnologia | #bae6fd | web_search
+Director de tecnología | DIRTEC
+Subdirector de tecnología | SUBTEC
+Gerente de tecnología | GERTEC
+Director de informática | DIRINF
+Jefe de sistemas | JEFSIS
+Responsable de infraestructura | RESINF
+Responsable de aplicaciones | RESAPL
+Responsable de desarrollo | RESDES
+Responsable de ciberseguridad | RESCIB
+Responsable de soporte técnico | RESSOP
+Coordinador de sistemas | COOSIS
+Coordinador de desarrollo | COODES
+Coordinador de soporte | COOSOP
+Supervisor informático | SUPINF
+Arquitecto de sistemas | ARQSIS
+Arquitecto de software | ARQSOF
+Ingeniero de software | INGSOF
+Ingeniero de sistemas | INGSIS
+Ingeniero de redes | INGRED
+Ingeniero de infraestructura | INGINF
+Desarrollador sénior | DESSEN
+Desarrollador de software | DESSOF
+Desarrollador web | DESWEB
+Desarrollador móvil | DESMOV
+Programador | PROGRA
+Administrador de sistemas | ADMSIS
+Administrador de redes | ADMRED
+Administrador de bases de datos | ADMDBD
+Administrador de servidores | ADMSER
+Técnico informático | TECINF
+Técnico de soporte | TECSOP
+Técnico de redes | TECRED
+Técnico de hardware | TECHAR
+Técnico de software | TECSOF
+Operador de sistemas | OPESIS
+Operador de centro de datos | OPEDAT
+Auxiliar informático | AUXINF
+Becario informático | BECINF
+
+## Producción, operaciones y fabricación | Producción | produccion | #d9f99d |
+Director de producción | DIRPRO
+Subdirector de producción | SUBPRO
+Gerente de producción | GERPRO
+Director de operaciones | DIROPE
+Gerente de operaciones | GEROPE
+Jefe de producción | JEFPRO
+Jefe de planta | JEFPLA
+Jefe de turno | JEFTUR
+Responsable de fabricación | RESFAB
+Responsable de operaciones | RESOPE
+Responsable de procesos | RESPRO
+Coordinador de producción | COOPRO
+Coordinador de planta | COOPLA
+Supervisor de producción | SUPPRO
+Supervisor de turno | SUPTUR
+Supervisor de línea | SUPLIN
+Ingeniero de producción | INGPRO
+Ingeniero industrial | INGIND
+Ingeniero de procesos | INGPRC
+Técnico de producción | TECPRO
+Técnico de procesos | TECPRC
+Técnico de fabricación | TECFAB
+Operador de producción | OPEPRO
+Operador de maquinaria | OPEMAQ
+Operador de línea | OPELIN
+Operador de montaje | OPEMON
+Operador de ensamblaje | OPEENS
+Maquinista | MAQUIN
+Montador | MONTAD
+Ensamblador | ENSAMB
+Ajustador industrial | AJUIND
+Soldador | SOLDAD
+Tornero | TORNRO
+Fresador | FRESAD
+Mecánico industrial | MECIND
+Peón de producción | PEPROD
+Ayudante de producción | AYUPRO
+Auxiliar de producción | AUXPRO
+Aprendiz de producción | APRPRO
+Becario de producción | BECPRO
+
+## Compras, aprovisionamiento y logística | Compras y logística | compras-logistica | #fed7aa |
+Director de compras | DIRCOMPR
+Subdirector de compras | SUBCOMPR
+Gerente de compras | GERCOMPR
+Director de logística | DIRLOG
+Gerente de logística | GERLOG
+Jefe de compras | JEFCOM
+Jefe de aprovisionamiento | JEFAPR
+Jefe de almacén | JEFALM
+Jefe de transporte | JEFTRA
+Responsable de proveedores | RESPROV
+Responsable de inventario | RESINV
+Responsable de almacén | RESALM
+Responsable de distribución | RESDIS
+Coordinador de compras | COOCOMPR
+Coordinador logístico | COOLOG
+Coordinador de almacén | COOALM
+Supervisor de almacén | SUPALM
+Supervisor de transporte | SUPTRA
+Analista de compras | ANACOM
+Analista logístico | ANALOG
+Analista de inventario | ANAINV2
+Técnico de compras | TECCOM
+Técnico logístico | TECLOG
+Técnico de almacén | TECALM
+Técnico de transporte | TECTRA
+Gestor de compras | GESCOM
+Gestor de proveedores | GESPRO
+Gestor de inventario | GESINV
+Almacenero | ALMACE
+Carretillero | CARRET
+Mozo de almacén | MOZALM
+Preparador de pedidos | PREPED
+Repartidor | REPART
+Conductor de reparto | CONREP
+Conductor de transporte | CONTRA
+Auxiliar de almacén | AUXALM
+Auxiliar logístico | AUXLOG
+Ayudante de carga | AYUCAR
+Becario de logística | BECLOG
+
+## Calidad, medio ambiente y prevención | Calidad y prevención | calidad | #bbf7d0 |
+Director de calidad | DIRCAL
+Subdirector de calidad | SUBCAL
+Gerente de calidad | GERCAL
+Director de medio ambiente | DIRAMB
+Director de prevención | DIRPRE
+Jefe de calidad | JEFCAL
+Jefe de prevención | JEFPRE
+Responsable de calidad | RESCAL
+Responsable medioambiental | RESAMB
+Responsable de seguridad laboral | RESSEG
+Coordinador de calidad | COOCAL
+Coordinador de prevención | COOPRE
+Supervisor de calidad | SUPCAL
+Inspector de calidad | INSCAL
+Auditor de calidad | AUDCAL
+Técnico de calidad | TECCAL
+Técnico ambiental | TECAMB
+Técnico de prevención | TECPRV
+Técnico de seguridad laboral | TECSEG
+Técnico de laboratorio | TECLAB
+Analista de laboratorio | ANALAB
+Auxiliar de laboratorio | AUXLAB
+Inspector ambiental | INSAMB
+Auxiliar de calidad | AUXCAL
+Becario de calidad | BECCAL
+
+## Atención al cliente y posventa | Atención al cliente | atencion-cliente | #a5f3fc |
+Director de atención al cliente | DIRATE
+Gerente de atención al cliente | GERATE
+Jefe de atención al cliente | JEFATE
+Responsable de experiencia del cliente | RESEXCL
+Responsable de posventa | RESPOS
+Coordinador de atención | COOATE
+Supervisor de atención | SUPATE
+Supervisor de call center | SUPCALC
+Analista de experiencia del cliente | ANACLI
+Gestor de reclamaciones | GESREC
+Gestor de incidencias | GESINC
+Técnico de atención al cliente | TECATE
+Técnico de posventa | TECPOS
+Agente de atención al cliente | AGEATE
+Agente de soporte | AGESOP
+Operador telefónico | OPETEL
+Teleoperador | TELEOP
+Recepcionista de clientes | RECCLI
+Auxiliar de atención | AUXATE
+Auxiliar de posventa | AUXPOS
+Becario de atención al cliente | BECATE
+
+## Departamento jurídico y cumplimiento normativo | Jurídico | juridico | #fbcfe8 | web_search
+Director jurídico | DIRJUR
+Subdirector jurídico | SUBJUR
+Gerente jurídico | GERJUR
+Jefe jurídico | JEFJUR
+Responsable de cumplimiento | RESCUM
+Responsable de protección de datos | RESDAT
+Responsable de contratación | RESCTR
+Responsable de asuntos legales | RESLEG
+Coordinador jurídico | COOJUR
+Coordinador de cumplimiento | COOCUM
+Abogado sénior | ABOSES
+Abogado corporativo | ABOCOR
+Abogado laboralista | ABOLAB
+Abogado mercantilista | ABOMER
+Abogado fiscalista | ABOFIS
+Abogado procesalista | ABOPRO
+Asesor jurídico | ASEJUR
+Asesor legal | ASELEG
+Técnico jurídico | TECJUR
+Técnico de cumplimiento | TECCUM
+Paralegal | PARALE
+Administrativo jurídico | ADM JUR
+Auxiliar jurídico | AUXJUR
+Becario jurídico | BECJUR
+
+## Auditoría, control interno y riesgos | Control | sala-control | #fde68a | read_audit, read_finance
+Director de auditoría | DIRAUD
+Gerente de auditoría | GERAUD
+Jefe de auditoría interna | JEFAUI
+Responsable de control interno | RESCOI
+Responsable de riesgos | RESRIE
+Responsable de control de gestión | RESCOG
+Coordinador de auditoría | COOAUD
+Coordinador de riesgos | COORIE
+Auditor interno sénior | AUDINS
+Auditor interno | AUDINT
+Auditor financiero | AUDFIN
+Auditor operativo | AUDOPE
+Auditor de procesos | AUDPRC
+Analista de riesgos | ANARIE
+Analista de control interno | ANACOI
+Técnico de auditoría | TECAUD
+Técnico de riesgos | TECRIE
+Auxiliar de auditoría | AUXAUD
+Auxiliar de control | AUXCONI
+Becario de auditoría | BECAUD
+
+## Investigación, desarrollo e innovación | I+D+i | investigacion | #c4b5fd | web_search
+Director de investigación | DIRINV
+Director de innovación | DIRINO
+Gerente de investigación | GERINV
+Jefe de investigación | JEFINV
+Responsable de desarrollo tecnológico | RESDET
+Responsable de innovación | RESINO
+Coordinador de investigación | COOINV
+Coordinador de innovación | COOINO
+Investigador principal | INVPRI
+Investigador sénior | INVSES
+Investigador | INVEST
+Científico de datos | CIENDA
+Analista de datos | ANADAT
+Especialista de I+D | ESPID
+Técnico de investigación | TECINV
+Técnico de desarrollo | TECDEV
+Técnico de laboratorio de I+D | TECLID
+Auxiliar de investigación | AUXINV
+Asistente de investigación | ASIINV
+Becario de investigación | BECINV
+
+## Recursos inmobiliarios, mantenimiento e instalaciones | Mantenimiento | mantenimiento | #d6d3d1 |
+Director de mantenimiento | DIRMAN
+Gerente de mantenimiento | GERMAN
+Jefe de mantenimiento | JEFMAN
+Responsable de instalaciones | RESINS
+Responsable de edificios | RESEDI
+Coordinador de mantenimiento | COOMAN
+Supervisor de mantenimiento | SUPMAN
+Ingeniero de mantenimiento | INGMAN
+Técnico de mantenimiento | TECMAN
+Técnico electricista | TECELE
+Técnico electrónico | TECELC
+Técnico frigorista | TECFRI
+Técnico de climatización | TECCLI
+Técnico de fontanería | TECFON
+Electricista | ELECTR
+Fontanero | FONTAN
+Albañil | ALBAN
+Pintor | PINTOR
+Carpintero | CARPIN
+Cerrajero | CERRAJ
+Jardinero | JARDIN
+Personal de limpieza | LIMPIE
+Operario de mantenimiento | OPEMAN
+Ayudante de mantenimiento | AYUMAN
+Auxiliar de mantenimiento | AUXMAN
+Becario de mantenimiento | BECMAN
+
+## Seguridad física y vigilancia | Seguridad | seguridad | #cbd5e1 |
+Director de seguridad física | DIRSEF
+Jefe de seguridad | JEFSEG
+Responsable de vigilancia | RESVIG
+Coordinador de seguridad | COOSEF
+Supervisor de vigilancia | SUPVIG
+Inspector de seguridad | INSSEG
+Técnico de seguridad física | TECSEF
+Vigilante de seguridad | VIGSEG
+Guarda de seguridad | GUASEG
+Controlador de accesos | CONACC
+Operador de cámaras | OPECAM
+Auxiliar de seguridad | AUXSEG
+
+## Hostelería, restauración y servicios | Hostelería | hosteleria | #fef08a |
+Director de hostelería | DIRHOS
+Gerente de establecimiento | GEREST
+Jefe de sala | JEFSAL
+Jefe de cocina | JEFCOK
+Segundo jefe de cocina | SEJCOK
+Responsable de restaurante | RESRES
+Responsable de alojamiento | RESALO
+Coordinador de eventos | COOEVT
+Supervisor de servicio | SUPSER
+Chef ejecutivo | CHEFEX
+Chef | CHEF
+Cocinero sénior | COCSEN
+Cocinero | COCINA
+Ayudante de cocina | AYUCOC
+Pinche de cocina | PINCOC
+Repostero | REPOST
+Pastelero | PASTEL
+Camarero | CAMARE
+Ayudante de camarero | AYUCAM
+Barman | BARMAN
+Barista | BARIST
+Recepcionista de hotel | RECHOT
+Gobernante de hotel | GOBHOT
+Camarera de pisos | CAMPIS
+Auxiliar de limpieza | AUXLIM
+Personal de lavandería | LAVAND
+Botones de hotel | BOTONE
+Becario de hostelería | BECHOS
+
+## Transporte y conducción | Transporte | transporte | #99f6e4 |
+Director de transporte | DIRTRA
+Gerente de transporte | GERTRA
+Jefe de tráfico | JEFTRA2
+Responsable de flota | RESFLO
+Coordinador de transporte | COOTRA
+Supervisor de conductores | SUPCON
+Planificador de rutas | PLANRU
+Técnico de tráfico | TECTRF
+Conductor ejecutivo | CONEJE2
+Conductor de camión | CONCAM
+Conductor de furgoneta | CONFUR
+Conductor de autobús | CONAUT
+Conductor de maquinaria | CONMAQ
+Chofer | CHOFER
+Repartidor motorizado | REPMOT
+Auxiliar de transporte | AUXTRA
+Ayudante de conductor | AYUCON
+Becario de transporte | BECTRA
+
+## Comercio, tiendas y establecimientos | Tiendas | tiendas | #fecdd3 |
+Director de tiendas | DIRTIEN
+Gerente de tienda | GERTIE
+Subgerente de tienda | SUBTIE
+Encargado de establecimiento | ENCEST
+Jefe de sección | JEFSEC
+Responsable de caja | RESCAJ
+Responsable de reposición | RESREP
+Coordinador de tienda | COOTIE
+Supervisor de tienda | SUPTIE
+Cajero sénior | CAJSEN
+Cajero | CAJERO
+Dependiente sénior | DEPSEN
+Dependiente | DEPEND
+Reponedor | REPONE
+Escaparatista | ESCAPA
+Inventarista | INVENT
+Auxiliar de tienda | AUXTIE
+Auxiliar de caja | AUXCAJ
+Ayudante de tienda | AYUTIE
+Becario de tienda | BECTIE
+
+## Formación, educación y capacitación | Formación | formacion | #bfdbfe |
+Director de formación | DIRFOR
+Gerente de formación | GERFOR
+Jefe de formación | JEF FOR
+Responsable de capacitación | RESCAP
+Coordinador académico | COOACA
+Coordinador de formación | COOFOR2
+Supervisor de formación | SUPFOR
+Formador sénior | FORSEN
+Formador | FORMAD
+Instructor técnico | INSTEC
+Profesor | PROFES
+Tutor | TUTOR
+Mentor | MENTOR
+Diseñador instruccional | DISINS
+Técnico de formación | TECFOR2
+Administrativo de formación | ADMFOR
+Auxiliar de formación | AUXFOR
+Becario de formación | BECFOR
+
+## Dirección territorial, delegaciones y sucursales | Territorial | territorial | #e7e5e4 |
+Director territorial | DIRTERR
+Director regional | DIRREG
+Director provincial | DIRPROV
+Director de zona | DIRZON
+Gerente regional | GERREG
+Gerente provincial | GERPROV
+Gerente de zona | GERZON
+Delegado territorial | DELETERR
+Delegado regional | DELREG
+Delegado provincial | DELPROV
+Responsable de delegación | RESDEL
+Responsable de sucursal | RESSUC
+Jefe de sucursal | JEFSUC
+Coordinador territorial | COOTER
+Coordinador regional | COOREG
+Supervisor territorial | SUPTER
+Supervisor regional | SUPREG
+Administrativo territorial | ADMTER
+Auxiliar territorial | AUXTER
+
+## Puestos transversales y de apoyo | Apoyo | apoyo | #f5d0fe |
+Jefe de equipo | JEFEQU
+Coordinador de equipo | COO EQU
+Supervisor de equipo | SUPEQU
+Responsable de área | RESARE
+Responsable de unidad | RESUNI
+Responsable de sección | RESSEC
+Responsable de servicio | RESSER
+Responsable de proyecto | RESPROJ
+Gestor de proyectos | GESPROJ
+Director de proyectos | DIRPROJ
+Jefe de proyecto | JEFPROJ
+Coordinador de proyectos | COOPROJ
+Técnico de proyectos | TECPROJ
+Analista de proyectos | ANAPROJ
+Asistente de proyectos | ASIPROJ
+Auxiliar de proyectos | AUXPROJ
+Asistente ejecutivo | ASIEJE
+Asistente personal | ASIPER
+Asistente de departamento | ASIDEP
+Auxiliar de departamento | AUXDEP
+
+## Categorías de incorporación y puestos de menor nivel | Incorporaciones | incorporaciones | #dbeafe |
+Técnico en prácticas | TECPRA
+Administrativo en prácticas | ADMPRA
+Profesional en prácticas | PROPRA
+Operario en prácticas | OPEPRA
+Aprendiz profesional | APRPRO2
+Aprendiz técnico | APRTEC
+Aprendiz administrativo | APRADM
+Aprendiz de oficio | APROFI
+Becario universitario | BECUNI
+Becario de formación profesional | BECFP
+Becario de grado | BECGRA
+Becario de posgrado | BECPOS
+Becario de máster | BECMAS
+Becario de doctorado | BECDOC
+Auxiliar en prácticas | AUXPRA
+Ayudante general | AYUGEN
+Ayudante especializado | AYUESP
+Peón especializado | PEESP
+Peón ordinario | PEORD
+Operario especializado | OPEESP
+Operario general | OPEGEN
+Operario auxiliar | OPEAUX
+Personal de apoyo | PERAPO
+Personal eventual | PEREVE
+Personal temporal | PERTEM
+Personal de refuerzo | PERREF
+Personal de sustitución | PERSUS
+Personal en formación | PERFOR
+Personal en prácticas | PERPRA

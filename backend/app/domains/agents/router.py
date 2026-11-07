@@ -18,7 +18,7 @@ router = APIRouter(tags=["agents"])
 
 
 class AgentIn(BaseModel):
-    name: str = Field(min_length=1, max_length=120)
+    name: str | None = Field(default=None, max_length=120)
     role: str = Field(min_length=1, max_length=60)
     avatar: str = "default"
     department_id: uuid.UUID | None = None
@@ -31,6 +31,7 @@ class AgentIn(BaseModel):
     seat_x: int = 0
     seat_y: int = 0
     system_prompt: str | None = None
+    personality: str = ""
 
 
 class AgentPatch(BaseModel):
@@ -73,6 +74,16 @@ async def role_catalog(company: CompanyDep) -> dict[str, Any]:
     return service.role_catalog()
 
 
+@router.get("/role-catalog/default-prompt")
+async def role_default_prompt(role: str, company: CompanyDep) -> dict[str, str]:
+    return {"system_prompt": service.default_prompt(role)}
+
+
+@router.get("/tools/catalog")
+async def tool_catalog(company: CompanyDep) -> list[dict[str, Any]]:
+    return runtime_service.tool_catalog()
+
+
 @router.get("/agents")
 async def list_agents(company: CompanyDep, db: Db) -> list[dict[str, Any]]:
     return await service.summaries(db, company.id)
@@ -83,7 +94,8 @@ async def create_agent(body: AgentIn, company: CompanyDep, db: Db) -> dict[str, 
     fields = body.model_dump(exclude={"seat_x", "seat_y", "name", "role"})
     if not body.home_room_id:
         fields.update(await company_service.place_role(db, company.id, body.role))
-    agent = await service.create(db, company.id, name=body.name, role=body.role, seat=(body.seat_x, body.seat_y), **fields)
+    name = (body.name or "").strip() or await service.default_name(db, company.id, body.role)
+    agent = await service.create(db, company.id, name=name, role=body.role, seat=(body.seat_x, body.seat_y), **fields)
     await runtime_service.agent_hired(db, agent)
     return row(agent)
 
@@ -96,7 +108,11 @@ async def get_agent(agent_id: uuid.UUID, company: CompanyDep, db: Db) -> dict[st
 @router.patch("/agents/{agent_id}")
 async def patch_agent(agent_id: uuid.UUID, body: AgentPatch, company: CompanyDep, db: Db) -> dict[str, Any]:
     agent = await service.get(db, company.id, agent_id)
-    return row(await service.update_agent(db, agent, body.model_dump(exclude_unset=True)))
+    fields = body.model_dump(exclude_unset=True)
+    room_id = fields.pop("home_room_id", None)
+    if room_id and room_id != agent.home_room_id:
+        await office_service.relocate(db, agent, await office_service.get_room(db, company.id, room_id))
+    return row(await service.update_agent(db, agent, fields))
 
 
 @router.delete("/agents/{agent_id}", status_code=204)
@@ -149,6 +165,23 @@ async def add_prompt(agent_id: uuid.UUID, body: PromptIn, company: CompanyDep, d
     if body.restore_version is not None:
         return row(await service.restore_prompt(db, agent, body.restore_version))
     return row(await service.add_prompt_version(db, agent, body.system_prompt or "", body.note))
+
+
+@router.get("/agents/{agent_id}/prompt-preview")
+async def prompt_preview(agent_id: uuid.UUID, company: CompanyDep, db: Db) -> dict[str, Any]:
+    return await runtime_service.prompt_preview(db, company, await service.get(db, company.id, agent_id))
+
+
+@router.get("/agents/{agent_id}/default-prompt")
+async def agent_default_prompt(agent_id: uuid.UUID, company: CompanyDep, db: Db) -> dict[str, str]:
+    agent = await service.get(db, company.id, agent_id)
+    return {"system_prompt": service.default_prompt(agent.role)}
+
+
+@router.get("/agents/{agent_id}/traces/{trace_id}")
+async def agent_trace(agent_id: uuid.UUID, trace_id: uuid.UUID, company: CompanyDep, db: Db) -> dict[str, Any]:
+    await service.get(db, company.id, agent_id)
+    return row(await runtime_service.agent_trace(db, agent_id, trace_id))
 
 
 @router.get("/agents/{agent_id}/routine")

@@ -8,7 +8,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import Date, DateTime, Numeric, Table, insert, select, text
+from sqlalchemy import Date, DateTime, Numeric, Table, delete, insert, select, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -48,6 +48,28 @@ async def _scoped_rows(db: AsyncSession, company_id: uuid.UUID) -> dict[str, lis
         if "id" in table.c:
             ids[table.name] = [r["id"] for r in rows[table.name]]
     return rows
+
+
+async def delete_company(db: AsyncSession, company_id: uuid.UUID, owner_id: uuid.UUID) -> list[str]:
+    """Elimina todo lo de la empresa y devuelve las claves de sus ficheros; la cuenta del dueño se conserva."""
+    await db.execute(text("select set_config('app.purge_company', :id, true)"), {"id": str(company_id)})
+    await db.flush()
+    scoped = await _scoped_rows(db, company_id)
+    keys = [r["storage_key"] for rows in scoped.values() for r in rows if r.get("storage_key")]
+    for table in reversed(_tables()):
+        if "id" in table.c:
+            stmt = delete(table).where(table.c.id.in_([r["id"] for r in scoped[table.name]]))
+        elif "company_id" in table.c:
+            stmt = delete(table).where(table.c.company_id == company_id)
+        else:
+            columns = list(table.primary_key.columns)
+            stmt = delete(table).where(columns[0].in_([r[columns[0].name] for r in scoped[table.name]]))
+        await db.execute(stmt)
+    for name in ("realtime_events", "embedding_cache"):
+        await db.execute(delete(Base.metadata.tables[name]))
+    notifications = Base.metadata.tables["notifications"]
+    await db.execute(delete(notifications).where(notifications.c.owner_id == owner_id))
+    return keys
 
 
 def _encode(value: Any) -> str:

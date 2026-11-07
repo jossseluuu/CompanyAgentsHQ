@@ -42,6 +42,9 @@ class Furniture(Entity):
     grid_y: Mapped[int] = mapped_column(Integer)
     rotation: Mapped[int] = mapped_column(Integer, default=0)
     interactive: Mapped[bool] = mapped_column(Boolean, default=False)
+    width: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    depth: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    variant: Mapped[str] = mapped_column(String(30), default="classic", server_default="classic")
 
 
 class RoomAccess(Entity):

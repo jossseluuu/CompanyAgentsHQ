@@ -65,7 +65,7 @@ export function RoomMesh({ room, dimmed }: { room: Room; dimmed: boolean }) {
           event.stopPropagation();
           const office = useOffice.getState();
           if (!editing) openRoom(room.id);
-          else if (pickedFurniture) void office.placeFurniture(Math.round(event.point.x), Math.round(event.point.z));
+          else if (pickedFurniture || office.editBrush) void office.placeFurniture(Math.round(event.point.x), Math.round(event.point.z));
           else office.editSelect(room.id);
         }}
         onPointerOver={(event) => {

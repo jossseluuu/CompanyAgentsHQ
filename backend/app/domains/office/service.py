@@ -1,4 +1,6 @@
 import asyncio
+import random
+import time
 import uuid
 from typing import Any
 
@@ -12,19 +14,31 @@ from app.core.errors import AppError, NotFound
 from app.core.events import Event, bus, emit
 from app.core.util import as_uuid, row, rows
 from app.domains.agents import service as agents_service
+from app.domains.audit import service as audit_service
+from app.domains.office import furniture_catalog as catalog_data
 from app.domains.office.models import AgentMove, Furniture, Room, RoomAccess, RoomModuleRow
 from app.domains.office.pathfinding import Tile, find_path, wall_tiles
 from app.domains.office.routines import DEFAULT_RULES, TARGETS, destination
 
 GRID_MARGIN = 2
+MAP_LIMIT = 90
 _walk_generation: dict[uuid.UUID, int] = {}
+_strolling_until: dict[uuid.UUID, float] = {}
 
-DECOR = frozenset(
-    {
-        "desk", "plant", "bookshelf", "sofa", "coffee_machine", "whiteboard", "board", "screen",
-        "filing_cabinet", "meeting_table", "lamp", "rug", "water_cooler", "printer",
-    }
-)  # fmt: skip
+AT_EASE = frozenset({"idle", "resting"})
+STROLL_CHANCE = 0.5
+LINGER_SECONDS = 10.0
+CHATTER = {
+    "es": [
+        ("¿Café?", "Venga, uno rápido"), ("¿Qué tal va todo?", "Liado, pero bien"),
+        ("¿Has visto la pizarra?", "Sí, menudo plan"),
+        ("Buenos días", "Hola, ¿cómo vas?"), ("¿Comemos luego?", "Hecho"), ("Vaya semana", "Y aún queda"),
+    ],
+    "en": [
+        ("Coffee?", "Sure, a quick one"), ("How's it going?", "Busy, but fine"), ("Seen the whiteboard?", "Yes, big plans"),
+        ("Morning!", "Hi, how are you?"), ("Lunch later?", "Deal"), ("What a week", "And it's not over"),
+    ],
+}
 
 
 async def get_room(db: AsyncSession, company_id: uuid.UUID, room_id: uuid.UUID) -> Room:
@@ -71,6 +85,17 @@ async def _room_furniture(db: AsyncSession, room_id: uuid.UUID) -> list[Furnitur
     return list((await db.execute(stmt)).scalars())
 
 
+def tiles_of(corner: Tile, width: int, depth: int) -> set[Tile]:
+    return {(corner[0] + i, corner[1] + j) for i in range(width) for j in range(depth)}
+
+
+def footprint(item: Furniture) -> set[Tile]:
+    """Casillas que ocupa: la esquina superior izquierda es (grid_x, grid_y) y girar 90° cruza ancho y fondo."""
+    crossed = item.rotation % 180 == 90
+    width, depth = (item.depth, item.width) if crossed else (item.width, item.depth)
+    return tiles_of((item.grid_x, item.grid_y), width, depth)
+
+
 def _overlaps(room: Room, x: int, y: int, width: int, height: int) -> bool:
     apart_x = x >= room.grid_x + room.width or room.grid_x >= x + width
     apart_y = y >= room.grid_y + room.height or room.grid_y >= y + height
@@ -87,6 +112,16 @@ async def free_spot(db: AsyncSession, company_id: uuid.UUID) -> tuple[int, int]:
     """Debajo de la última sala, con un pasillo de por medio."""
     rooms = await list_rooms(db, company_id)
     return 1, max((r.grid_y + r.height for r in rooms), default=-1) + 2
+
+
+async def free_spot_for(db: AsyncSession, company_id: uuid.UUID, width: int, height: int) -> tuple[int, int]:
+    """El primer hueco con pasillo alrededor, por filas: la oficina crece a lo ancho y a lo largo."""
+    rooms = await list_rooms(db, company_id)
+    for y in range(1, MAP_LIMIT):
+        for x in range(1, MAP_LIMIT - width):
+            if not any(_overlaps(r, x - 1, y - 1, width + 2, height + 2) for r in rooms):
+                return x, y
+    return await free_spot(db, company_id)
 
 
 async def create_room(db: AsyncSession, company_id: uuid.UUID, **fields: Any) -> Room:
@@ -129,7 +164,8 @@ async def _reshape(db: AsyncSession, room: Room, fields: dict[str, Any]) -> None
     inside = {(a, b) for a in range(x + 1, x + width - 1) for b in range(y + 1, y + height - 1)}
     items = await _room_furniture(db, room.id)
     agents = await agents_service.agents_in_room(db, room.id)
-    spots = [(f.grid_x + dx, f.grid_y + dy) for f in items] + [(a.seat_x + dx, a.seat_y + dy) for a in agents]
+    spots = [(a + dx, b + dy) for f in items for a, b in footprint(f)]
+    spots += [(a.seat_x + dx, a.seat_y + dy) for a in agents]
     if any(spot not in inside for spot in spots):
         raise AppError("room_too_small", "Mueve antes los muebles o los puestos que quedarían fuera", 409)
     if "doors" not in fields:
@@ -190,10 +226,14 @@ async def add_furniture(
     y: int,
     rotation: int = 0,
     interactive: bool = False,
+    size: tuple[int, int] | None = None,
+    variant: str = "classic",
 ) -> Furniture:
+    width, depth = size or catalog_data.default_size(model_key)
     item = Furniture(
-        room_module_id=module.id, model_key=model_key, grid_x=x, grid_y=y, rotation=rotation, interactive=interactive
-    )
+        room_module_id=module.id, model_key=model_key, grid_x=x, grid_y=y, rotation=rotation, interactive=interactive,
+        width=width, depth=depth, variant=variant,
+    )  # fmt: skip
     db.add(item)
     await db.flush()
     return item
@@ -204,20 +244,40 @@ async def _reachable(db: AsyncSession, room: Room) -> bool:
     seats = await agents_service.seats_in_room(db, room.id)
     if not room.doors:
         return True
-    door = (room.doors[0][0], room.doors[0][1])
-    return all(find_path(width, height, blocked - {seat}, door, seat) for seat in seats)
+    doors = [(door[0], door[1]) for door in room.doors]
+    outside = (width - 1, height - 1)  # el margen de la rejilla queda siempre fuera de las salas
+    if not any(find_path(width, height, blocked, door, outside) for door in doors):
+        return False
+    return all(any(find_path(width, height, blocked - {seat}, door, seat) for door in doors) for seat in seats)
 
 
-async def place_furniture(db: AsyncSession, room: Room, model_key: str, x: int, y: int, rotation: int) -> Furniture:
-    if model_key not in DECOR:
-        raise AppError("unknown_furniture", "Ese mueble no existe", 422)
-    occupied = {(f.grid_x, f.grid_y) for f in await _room_furniture(db, room.id)}
-    if (x, y) not in _interior(room):
+def _check_look(model_key: str, size: tuple[int, int], variant: str) -> None:
+    if size not in catalog_data.sizes(model_key):
+        raise AppError("unknown_size", "Ese mueble no existe en ese tamaño", 422)
+    if variant not in catalog_data.STYLES:
+        raise AppError("unknown_variant", "Esa estética no existe", 422)
+
+
+async def _check_fit(db: AsyncSession, room: Room, tiles: set[Tile], skip: uuid.UUID | None = None) -> None:
+    if not tiles <= set(_interior(room)):
         raise AppError("tile_outside", "El mueble debe quedar dentro de su sala", 409)
-    if (x, y) in occupied | _reserved(room) | await agents_service.seats_in_room(db, room.id):
+    others = {tile for f in await _room_furniture(db, room.id) if f.id != skip for tile in footprint(f)}
+    if tiles & (others | _reserved(room) | await agents_service.seats_in_room(db, room.id)):
         raise AppError("tile_taken", "Esa casilla está ocupada o bloquea una puerta", 409)
+
+
+async def place_furniture(
+    db: AsyncSession, room: Room, model_key: str, x: int, y: int, rotation: int,
+    size: tuple[int, int] | None = None, variant: str = "classic",
+) -> Furniture:  # fmt: skip
+    if model_key not in catalog_data.FURNITURE:
+        raise AppError("unknown_furniture", "Ese mueble no existe", 422)
+    size = size or catalog_data.default_size(model_key)
+    _check_look(model_key, size, variant)
+    crossed = rotation % 180 == 90
+    await _check_fit(db, room, tiles_of((x, y), *(size[::-1] if crossed else size)))
     team = await install_module(db, room, "team")
-    item = await add_furniture(db, room, team, model_key, x, y, rotation, False)
+    item = await add_furniture(db, room, team, model_key, x, y, rotation, False, size, variant)
     if not await _reachable(db, room):
         await db.delete(item)
         raise AppError("tile_blocks_path", "Ahí dejaría a un agente sin paso", 409)
@@ -231,34 +291,46 @@ async def remove_furniture(db: AsyncSession, company_id: uuid.UUID, furniture_id
     if item is None or module is None:
         raise NotFound("Mueble")
     room = await get_room(db, company_id, module.room_id)
-    if item.interactive:
+    if item.interactive and item.model_key != "desk":
         raise AppError("furniture_in_use", "Ese mueble pertenece a un módulo: desinstala el módulo", 409)
     await db.delete(item)
     await emit(db, "module.updated", {"room_id": room.id, "module_key": module.module_key})
 
 
 async def move_furniture(
-    db: AsyncSession, company_id: uuid.UUID, furniture_id: uuid.UUID, x: int, y: int, rotation: int
-) -> Furniture:
+    db: AsyncSession, company_id: uuid.UUID, furniture_id: uuid.UUID, x: int, y: int, rotation: int,
+    size: tuple[int, int] | None = None, variant: str | None = None,
+) -> Furniture:  # fmt: skip
     item = await db.get(Furniture, furniture_id)
     module = await db.get(RoomModuleRow, item.room_module_id) if item else None
     if item is None or module is None:
         raise NotFound("Mueble")
     room = await get_room(db, company_id, module.room_id)
-    others = {(f.grid_x, f.grid_y) for f in await _room_furniture(db, room.id) if f.id != item.id}
-    if (x, y) not in _interior(room):
-        raise AppError("tile_outside", "El mueble debe quedar dentro de su sala", 409)
-    if (x, y) in others | _reserved(room) | await agents_service.seats_in_room(db, room.id):
-        raise AppError("tile_taken", "Esa casilla está ocupada o bloquea una puerta", 409)
-    previous = (item.grid_x, item.grid_y)
+    size = size or (item.width, item.depth)
+    variant = variant or item.variant
+    _check_look(item.model_key, size, variant)
+    crossed = rotation % 180 == 90
+    await _check_fit(db, room, tiles_of((x, y), *(size[::-1] if crossed else size)), skip=item.id)
+    previous = (item.grid_x, item.grid_y, item.rotation, item.width, item.depth, item.variant)
     item.grid_x, item.grid_y, item.rotation = x, y, rotation
+    item.width, item.depth, item.variant = *size, variant
     await db.flush()
     if not await _reachable(db, room):
-        item.grid_x, item.grid_y = previous
+        item.grid_x, item.grid_y, item.rotation, item.width, item.depth, item.variant = previous
         await db.flush()
         raise AppError("tile_blocks_path", "Ahí dejaría a un agente sin paso", 409)
     await emit(db, "module.updated", {"room_id": room.id, "module_key": module.module_key})
     return item
+
+
+def _spot_for(room: Room, spec: plugins.FurnitureSpec, free: list[Tile]) -> tuple[Tile, tuple[int, int]] | None:
+    """Su sitio y tamaño habitual; si no cabe, el primer hueco, y si tampoco, un tamaño menor."""
+    wanted = (room.grid_x + spec.dx, room.grid_y + spec.dy)
+    for size in catalog_data.sizes(spec.model_key):
+        for corner in (wanted, *free):
+            if tiles_of(corner, *size) <= set(free):
+                return corner, size
+    return None
 
 
 async def install_module(db: AsyncSession, room: Room, key: str, config: dict[str, Any] | None = None) -> RoomModuleRow:
@@ -273,16 +345,16 @@ async def install_module(db: AsyncSession, room: Room, key: str, config: dict[st
     module = RoomModuleRow(room_id=room.id, module_key=key, config={**plugin.default_config, **(config or {})})
     db.add(module)
     await db.flush()
-    taken = {(f.grid_x, f.grid_y) for f in await _room_furniture(db, room.id)} | _reserved(room)
+    taken = {tile for f in await _room_furniture(db, room.id) for tile in footprint(f)} | _reserved(room)
     taken |= await agents_service.seats_in_room(db, room.id)
     free = [tile for tile in _interior(room) if tile not in taken]
     for spec in plugin.furniture:
-        wanted = (room.grid_x + spec.dx, room.grid_y + spec.dy)
-        tile = wanted if wanted in free else (free[0] if free else None)
-        if tile is None:
+        spot = _spot_for(room, spec, free)
+        if spot is None:
             break
-        free.remove(tile)
-        await add_furniture(db, room, module, spec.model_key, *tile, spec.rotation, spec.interactive)
+        corner, size = spot
+        free = [tile for tile in free if tile not in tiles_of(corner, *size)]
+        await add_furniture(db, room, module, spec.model_key, *corner, spec.rotation, spec.interactive, size)
     await emit(db, "module.updated", {"room_id": room.id, "module_key": key, "installed": True})
     return module
 
@@ -305,8 +377,8 @@ async def configure_module(db: AsyncSession, room: Room, key: str, config: dict[
     return module
 
 
-def furniture_catalog() -> list[str]:
-    return sorted(DECOR)
+def furniture_catalog() -> list[dict[str, Any]]:
+    return catalog_data.listing()
 
 
 def routine_options() -> dict[str, Any]:
@@ -354,7 +426,9 @@ async def build_grid(db: AsyncSession, company_id: uuid.UUID) -> tuple[int, int,
     blocked: set[Tile] = set()
     for room in rooms:
         blocked |= wall_tiles(room.grid_x, room.grid_y, room.width, room.height, [(d[0], d[1]) for d in room.doors])
-        blocked |= {(f.grid_x, f.grid_y) for f in await _room_furniture(db, room.id)}
+        for item in await _room_furniture(db, room.id):
+            if item.model_key not in catalog_data.WALKABLE:
+                blocked |= footprint(item)
     return *_bounds(rooms), blocked
 
 
@@ -374,10 +448,47 @@ async def can_use_tools(db: AsyncSession, agent: Any, room: Room) -> bool:
     return not room.restricted or agent.home_room_id == room.id
 
 
-async def set_access(db: AsyncSession, room: Room, agent_id: uuid.UUID, can_enter_room: bool, use_tools: bool) -> None:
-    await db.execute(delete(RoomAccess).where(RoomAccess.room_id == room.id, RoomAccess.agent_id == agent_id))
-    db.add(RoomAccess(room_id=room.id, agent_id=agent_id, can_enter=can_enter_room, can_use_tools=use_tools))
+async def room_access(db: AsyncSession, room: Room) -> list[dict[str, Any]]:
+    """La regla propia de cada agente, si la tiene, y lo que puede hacer con ella."""
+    stmt = select(RoomAccess).where(RoomAccess.room_id == room.id)
+    rules = {access.agent_id: access for access in (await db.execute(stmt)).scalars()}
+    listing = []
+    for agent in await agents_service.list_active(db, room.company_id):
+        rule = rules.get(agent.id)
+        listing.append(
+            {
+                "agent_id": agent.id,
+                "name": agent.name,
+                "home": agent.home_room_id == room.id,
+                "custom": rule is not None,
+                "can_enter": await can_enter(db, agent, room),
+                "can_use_tools": await can_use_tools(db, agent, room),
+            }
+        )
+    return listing
+
+
+async def _leave_if_barred(db: AsyncSession, agent: Any, room: Room) -> None:
+    if agent.current_room_id == room.id and not await can_enter(db, agent, room):
+        await walk(db, agent, "workplace", "access")
+
+
+async def set_access(db: AsyncSession, room: Room, agent: Any, can_enter_room: bool, use_tools: bool) -> None:
+    if agent.home_room_id == room.id and not (can_enter_room and use_tools):
+        raise AppError("home_room_access", "Es su sala base: trasládalo antes de quitarle el acceso", 409)
+    await db.execute(delete(RoomAccess).where(RoomAccess.room_id == room.id, RoomAccess.agent_id == agent.id))
+    db.add(RoomAccess(room_id=room.id, agent_id=agent.id, can_enter=can_enter_room, can_use_tools=use_tools))
     await db.flush()
+    details = {"room_id": room.id, "can_enter": can_enter_room, "can_use_tools": use_tools}
+    await audit_service.record(db, room.company_id, "owner", "room.access_changed", str(agent.id), details)
+    await _leave_if_barred(db, agent, room)
+
+
+async def clear_access(db: AsyncSession, room: Room, agent: Any) -> None:
+    await db.execute(delete(RoomAccess).where(RoomAccess.room_id == room.id, RoomAccess.agent_id == agent.id))
+    await db.flush()
+    await audit_service.record(db, room.company_id, "owner", "room.access_cleared", str(agent.id), {"room_id": room.id})
+    await _leave_if_barred(db, agent, room)
 
 
 def _room_at(rooms: list[Room], tile: Tile) -> Room | None:
@@ -412,12 +523,76 @@ async def assign_seat(db: AsyncSession, agent: Any) -> None:
         await emit(db, "agent.updated", row(agent))
 
 
+async def _take_desk(db: AsyncSession, agent: Any) -> tuple[int, int, str] | None:
+    """Retira el escritorio del puesto que deja, salvo que lo comparta, y devuelve cómo era."""
+    if agent.home_room_id is None:
+        return None
+    others = await agents_service.seats_in_room(db, agent.home_room_id) - {(agent.seat_x, agent.seat_y)}
+    for item in await _room_furniture(db, agent.home_room_id):
+        tiles = footprint(item)
+        if item.model_key == "desk" and (agent.seat_x, agent.seat_y - 1) in tiles:
+            if any((x, y + 1) in others for x, y in tiles):
+                return None
+            look = (item.width, item.depth, item.variant)
+            await db.delete(item)
+            await db.flush()
+            return look
+    return None
+
+
+async def _give_desk(db: AsyncSession, room: Room, agent: Any, look: tuple[int, int, str] | None) -> None:
+    width, depth, variant = look or (1, 1, "classic")
+    _, _, blocked = await build_grid(db, room.company_id)
+    free = set(_interior(room)) - blocked - _reserved(room) - await agents_service.seats_in_room(db, room.id)
+    for size in ((width, depth), (1, 1)):
+        corner = (agent.seat_x - (size[0] - 1) // 2, agent.seat_y - size[1])
+        if tiles_of(corner, *size) <= free:
+            team = await install_module(db, room, "team")
+            await add_furniture(db, room, team, "desk", *corner, 0, True, size, variant)
+            await emit(db, "module.updated", {"room_id": room.id, "module_key": "team"})
+            return
+
+
+async def relocate(db: AsyncSession, agent: Any, room: Room, tile: Tile | None = None) -> None:
+    """Cambia el puesto del agente, en su sala o en otra, y su escritorio va con él."""
+    look = await _take_desk(db, agent)
+    if tile is None:
+        agent.home_room_id = room.id
+        await db.flush()
+        await assign_seat(db, agent)
+        if (agent.seat_x, agent.seat_y) not in _interior(room):
+            raise AppError("room_full", "En esa sala no queda ningún puesto libre", 409)
+    else:
+        _, _, blocked = await build_grid(db, agent.company_id)
+        others = await agents_service.seats_in_room(db, room.id) - {(agent.seat_x, agent.seat_y)}
+        if tile not in _interior(room):
+            raise AppError("tile_outside", "El puesto debe quedar dentro de una sala", 409)
+        if tile in blocked | others | _reserved(room):
+            raise AppError("tile_taken", "Esa casilla está ocupada o bloquea una puerta", 409)
+        agent.home_room_id, agent.current_room_id = room.id, room.id
+        agent.seat_x, agent.seat_y = agent.pos_x, agent.pos_y = tile
+        await db.flush()
+        await _give_desk(db, room, agent, look)
+    if not await _reachable(db, room):
+        raise AppError("tile_blocks_path", "Ahí dejaría a un agente sin paso", 409)
+    await agents_service.update_agent(db, agent, {"home_room_id": room.id})
+
+
+async def room_at(db: AsyncSession, company_id: uuid.UUID, tile: Tile) -> Room:
+    room = _room_at(await list_rooms(db, company_id), tile)
+    if room is None:
+        raise AppError("tile_outside", "El puesto debe quedar dentro de una sala", 409)
+    return room
+
+
 async def _resolve(db: AsyncSession, agent: Any, target: str, room_id: uuid.UUID | None, blocked: set[Tile]) -> Tile | None:
     company_id = agent.company_id
+    wanted = await db.get(Room, room_id) if room_id else None
+    if wanted is not None and not await can_enter(db, agent, wanted):
+        room_id = None  # sin permiso se queda en su sitio
     if target == "workplace":
         if room_id and room_id != agent.home_room_id:
-            room = await db.get(Room, room_id)
-            return await _free_tile(db, room, blocked, agent) if room else None
+            return await _free_tile(db, wanted, blocked, agent) if wanted else None
         return (agent.seat_x, agent.seat_y)
     if target == "break":
         rooms = await rooms_with_module(db, company_id, "break_area")
@@ -428,7 +603,8 @@ async def _resolve(db: AsyncSession, agent: Any, target: str, room_id: uuid.UUID
         return cabinet or (agent.seat_x, agent.seat_y)
     else:
         return None
-    return await _free_tile(db, rooms[0], blocked, agent) if rooms else None
+    open_rooms = [room for room in rooms if await can_enter(db, agent, room)]
+    return await _free_tile(db, open_rooms[0], blocked, agent) if open_rooms else None
 
 
 async def _nearest_cabinet(db: AsyncSession, agent: Any, room_id: uuid.UUID | None, blocked: set[Tile]) -> Tile | None:
@@ -437,14 +613,16 @@ async def _nearest_cabinet(db: AsyncSession, agent: Any, room_id: uuid.UUID | No
         return None
     for item in await _room_furniture(db, room.id):
         if item.model_key == "filing_cabinet":
-            around = [(item.grid_x + dx, item.grid_y + dy) for dx, dy in ((0, 1), (1, 0), (-1, 0), (0, -1))]
+            around = [(x + dx, y + dy) for x, y in sorted(footprint(item)) for dx, dy in ((0, 1), (1, 0), (-1, 0), (0, -1))]
             for tile in around:
                 if tile not in blocked and tile in _interior(room):
                     return tile
     return None
 
 
-async def move_agent(db: AsyncSession, agent: Any, goal: Tile, reason: str, task_id: uuid.UUID | None = None) -> list[Tile]:
+async def move_agent(
+    db: AsyncSession, agent: Any, goal: Tile, reason: str, task_id: uuid.UUID | None = None, ambient: bool = False
+) -> list[Tile]:
     width, height, blocked = await build_grid(db, agent.company_id)
     start = (agent.pos_x, agent.pos_y)
     path = find_path(width, height, blocked - {start}, start, goal)
@@ -453,12 +631,13 @@ async def move_agent(db: AsyncSession, agent: Any, goal: Tile, reason: str, task
     agent.pos_x, agent.pos_y = goal
     final_room = _room_at(await list_rooms(db, agent.company_id), goal)
     agent.current_room_id = final_room.id if final_room else None
-    db.add(AgentMove(agent_id=agent.id, task_id=task_id, path=[list(t) for t in path], reason=reason))
+    if not ambient:
+        db.add(AgentMove(agent_id=agent.id, task_id=task_id, path=[list(t) for t in path], reason=reason))
     await db.flush()
     seconds = get_settings().walk_seconds_per_tile
     await emit(
         db,
-        "agent.moved",
+        "agent.strolled" if ambient else "agent.moved",
         {
             "agent_id": agent.id,
             "path": path,
@@ -509,7 +688,8 @@ async def visit(db: AsyncSession, agent: Any, other: Any, text: str) -> None:
     _, _, blocked = await build_grid(db, agent.company_id)
     around = [(other.seat_x + dx, other.seat_y + dy) for dx, dy in ((1, 0), (-1, 0), (0, 1))]
     goal = next((t for t in around if t not in blocked), None)
-    if goal:
+    room = await db.get(Room, other.home_room_id) if other.home_room_id else None
+    if goal and (room is None or await can_enter(db, agent, room)):
         await move_agent(db, agent, goal, "visit", agent.current_task_id)
     await emit(db, "agent.bubble", {"agent_id": agent.id, "to": other.id, "text": text[:120]})
 
@@ -519,6 +699,67 @@ async def recorded_path(db: AsyncSession, agent_id: uuid.UUID, task_id: uuid.UUI
     if task_id:
         stmt = stmt.where(AgentMove.task_id == task_id)
     return rows((await db.execute(stmt.limit(200))).scalars())
+
+
+async def _stroll(db: AsyncSession, agent: Any, team: list[Any], locale: str, rng: random.Random) -> None:
+    """Un paseo sin modelo ni coste: no pasa por la cola, y el trabajo real lo interrumpe al momento."""
+    rooms = await list_rooms(db, agent.company_id)
+    width, height, blocked = await build_grid(db, agent.company_id)
+    others = [a for a in await agents_service.list_active(db, agent.company_id) if a.id != agent.id]
+    taken = blocked | {(a.pos_x, a.pos_y) for a in others} | {(a.seat_x, a.seat_y) for a in others}
+    open_rooms = [room for room in rooms if await can_enter(db, agent, room)]
+    lounges = [r for r in await rooms_with_module(db, agent.company_id, "break_area") if await can_enter(db, agent, r)]
+
+    def spots(room: Room) -> list[Tile]:
+        return [t for t in _interior(room) if t not in taken and t not in _reserved(room)]
+
+    partner = None
+    goal: Tile | None = None
+    roll = rng.random()
+    mates = [a for a in team if a.id != agent.id and _strolling_until.get(a.id, 0) <= time.monotonic()]
+    if roll < 0.25 and mates:
+        partner = rng.choice(mates)
+        around = [(partner.pos_x + dx, partner.pos_y + dy) for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))]
+        goal = next((t for t in around if t not in taken), None)
+    elif roll < 0.6 and lounges:
+        choices = spots(rng.choice(lounges))
+        goal = rng.choice(choices) if choices else None
+    elif roll < 0.8 and open_rooms:
+        choices = spots(rng.choice(open_rooms))
+        goal = rng.choice(choices) if choices else None
+    elif roll < 0.9:
+        tiles = ((x, y) for x in range(width) for y in range(height))
+        hall = [tile for tile in tiles if tile not in taken and _room_at(rooms, tile) is None]
+        goal = rng.choice(hall) if hall else None
+    else:
+        goal = (agent.seat_x, agent.seat_y)
+    if goal is None:
+        return
+    path = await move_agent(db, agent, goal, "stroll", ambient=True)
+    if not path:
+        return
+    until = time.monotonic() + get_settings().walk_seconds_per_tile * len(path) + LINGER_SECONDS
+    _strolling_until[agent.id] = until
+    if partner is not None:
+        _strolling_until[partner.id] = until
+        hello, reply = rng.choice(CHATTER.get(locale, CHATTER["es"]))
+        await emit(db, "agent.chatter", {"agent_id": agent.id, "to": partner.id, "text": hello})
+        await emit(db, "agent.chatter", {"agent_id": partner.id, "to": agent.id, "text": reply})
+
+
+async def office_life(db: AsyncSession, company: Any, rng: random.Random | None = None) -> None:
+    """Quien no tiene trabajo se mueve por la oficina, salvo que el dueño lo apague o su rutina lo deje en el puesto."""
+    if (company.ai_settings or {}).get("office_life") is False:
+        return
+    dice = rng or random.Random()
+    agents = await agents_service.list_active(db, company.id)
+    team = [a for a in agents if a.status in AT_EASE and a.current_task_id is None and a.home_room_id]
+    for agent in team:
+        if dice.random() >= STROLL_CHANCE or _strolling_until.get(agent.id, 0) > time.monotonic():
+            continue
+        if (await agents_service.routine_rules(db, agent.id)).get("resting") == "workplace":
+            continue
+        await _stroll(db, agent, team, company.locale, dice)
 
 
 def register() -> None:

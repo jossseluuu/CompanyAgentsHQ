@@ -2,6 +2,7 @@ import io
 import json
 import zipfile
 
+import pytest
 from sqlalchemy import text
 
 from app.core.db import Base, get_engine
@@ -81,3 +82,52 @@ async def test_import_rejects_a_storage_key_outside_the_company(api: Api) -> Non
     await wipe_company()
     await api.request("POST", "/company/import", 422, **upload(buffer.getvalue()))
     assert not (await api.get("/company/exists"))["exists"]
+
+
+async def test_company_is_deleted_with_all_its_data(api, tmp_path) -> None:  # type: ignore[no-untyped-def]
+    import sqlalchemy as sa
+
+    from app.core.db import Base, session_scope
+    from app.domains.files import service as files_service
+    from tests.conftest import agent_id, room_id, settle
+
+    room = await room_id(api, "finanzas")
+    response = await api.request("POST", f"/rooms/{room}/files", 201, files={"file": ("nota.md", b"secreto", "text/markdown")})
+    await api.post("/tasks", {"title": "T", "agent_id": await agent_id(api, "redactor")})
+    await settle()
+    async with session_scope() as db:
+        key = (await db.execute(sa.text("select storage_key from files limit 1"))).scalar_one()
+    stored = files_service.storage()
+    assert await stored.get(key) == b"secreto"
+    assert response.status_code == 201
+
+    wrong_name = {"confirm_name": "Otra", "password": "contraseña-1"}
+    await api.request("DELETE", "/company", 422, json=wrong_name)
+    wrong_password = {"confirm_name": "Acme", "password": "mala"}
+    await api.request("DELETE", "/company", 401, json=wrong_password)
+    assert (await api.get("/company/exists"))["exists"] is True
+
+    body = {"confirm_name": "Acme", "password": "contraseña-1"}
+    await api.request("DELETE", "/company", 200, json=body)
+    async with session_scope() as db:
+        for table in Base.metadata.sorted_tables:
+            if table.name not in {"owners", "auth_sessions"}:
+                count = (await db.execute(sa.select(sa.func.count()).select_from(table))).scalar_one()
+                assert count == 0, table.name
+    with pytest.raises(FileNotFoundError):
+        await stored.get(key)
+    assert (await api.get("/company/exists"))["exists"] is False
+
+    await api.post("/company", {"name": "Nueva", "mission": "Otra vez", "template": "default"})
+    assert (await api.get("/audit/verify"))["valid"] is True
+
+
+async def test_audit_stays_protected_outside_a_company_deletion(api) -> None:  # type: ignore[no-untyped-def]
+    import sqlalchemy as sa
+
+    from app.core.db import session_scope
+
+    with pytest.raises(sa.exc.DBAPIError):
+        async with session_scope() as db:
+            await db.execute(sa.text("select set_config('app.purge_company', 'otra-empresa', true)"))
+            await db.execute(sa.text("delete from audit_events"))

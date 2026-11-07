@@ -1,11 +1,12 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { BookOpen, Building2, ListChecks, type LucideIcon, Network, ScrollText, Settings, ShieldCheck, Target } from "lucide-react";
+import { BookOpen, Building2, ListChecks, type LucideIcon, Network, ScrollText, Settings, ShieldCheck, Target, Users } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Navigate, NavLink, Route, Routes, useNavigate } from "react-router-dom";
+import { Navigate, NavLink, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 
 import { api, setCsrf } from "@/api/client";
 import type { Snapshot, StatusBar } from "@/api/types";
 import { EventSocket, type ServerEvent } from "@/api/ws";
+import { AgentProfile } from "@/features/agent-profile/AgentProfile";
 import { ApprovalsPage } from "@/features/approvals/ApprovalsPage";
 import { AuditPage } from "@/features/audit/AuditPage";
 import { GoalsPage } from "@/features/goals/GoalsPage";
@@ -16,6 +17,7 @@ import { OrgChartPage } from "@/features/org-chart/OrgChartPage";
 import { SearchDialog } from "@/features/search/SearchDialog";
 import { SettingsPage } from "@/features/settings/SettingsPage";
 import { TasksPage } from "@/features/tasks/TasksPage";
+import { TeamPage } from "@/features/team/TeamPage";
 import { OfficeView } from "@/office/OfficeView";
 import { Button } from "@/shared/ui";
 import { useOffice } from "@/store/office";
@@ -46,6 +48,8 @@ function Shell() {
   const [searching, setSearching] = useState(false);
   const paused = useOffice((s) => s.paused);
   const connected = useOffice((s) => s.connected);
+  const openProfile = useOffice((s) => s.profileAgentId);
+  const { pathname } = useLocation();
   const snapshot = useQuery({ queryKey: ["snapshot"], queryFn: () => api.get<Snapshot>("/company") });
   const bar = useQuery({ queryKey: ["status-bar"], queryFn: () => api.get<StatusBar>("/company/status-bar") });
 
@@ -85,6 +89,7 @@ function Shell() {
     ["/tasks", t("Tareas"), ListChecks],
     ["/approvals", t("Aprobaciones"), ShieldCheck],
     ["/audit", t("Auditoría"), ScrollText],
+    ["/team", t("Equipo"), Users],
     ["/org", t("Organigrama"), Network],
     ["/knowledge", t("Conocimiento"), BookOpen],
     ["/settings", t("Ajustes"), Settings],
@@ -151,12 +156,18 @@ function Shell() {
           <Route path="/tasks" element={<TasksPage />} />
           <Route path="/approvals" element={<ApprovalsPage />} />
           <Route path="/audit" element={<AuditPage />} />
+          <Route path="/team" element={<TeamPage />} />
           <Route path="/org" element={<OrgChartPage />} />
           <Route path="/knowledge" element={<KnowledgePage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </main>
+      {openProfile && pathname !== "/" && pathname !== "/team" && (
+        <div className="fixed inset-y-0 right-0 z-40 flex shadow-xl">
+          <AgentProfile agentId={openProfile} />
+        </div>
+      )}
       {searching && <SearchDialog onClose={() => setSearching(false)} />}
       </div>
     </div>

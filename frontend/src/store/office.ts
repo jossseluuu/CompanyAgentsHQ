@@ -3,10 +3,22 @@ import { create } from "zustand";
 import { api } from "@/api/client";
 import type { Agent, AgentStatus, Snapshot } from "@/api/types";
 import { type Tile, type Walk } from "@/office/pathAnimator";
+import { roomAt, type Box } from "@/office/planRules";
 
 interface Bubble {
   text: string;
   until: number;
+}
+
+export type EditTool = "select" | "door" | "room";
+
+/** Mueble elegido en el catálogo, a la espera de un clic en el suelo. */
+export interface Brush {
+  model_key: string;
+  width: number;
+  depth: number;
+  variant: string;
+  rotation: number;
 }
 
 interface OfficeState {
@@ -29,6 +41,15 @@ interface OfficeState {
   editRoomId: string | null;
   editFurnitureId: string | null;
   editError: unknown;
+  editTool: EditTool;
+  editBrush: Brush | null;
+  editDraft: Box | null;
+  editView: "plan" | "scene";
+  setEditTool: (tool: EditTool) => void;
+  setEditBrush: (brush: Brush | null) => void;
+  setEditDraft: (draft: Box | null) => void;
+  setEditView: (view: "plan" | "scene") => void;
+  setEditError: (error: unknown) => void;
   setEditing: (editing: boolean) => void;
   editSelect: (roomId: string | null) => void;
   editPick: (furnitureId: string | null) => void;
@@ -66,16 +87,31 @@ export const useOffice = create<OfficeState>((set, get) => ({
   editRoomId: null,
   editFurnitureId: null,
   editError: null,
+  editTool: "select",
+  editBrush: null,
+  editDraft: null,
+  editView: "plan",
+  setEditTool: (editTool) => set({ editTool, editBrush: null, editDraft: null, editError: null }),
+  setEditBrush: (editBrush) => set({ editBrush, editTool: "select", editFurnitureId: null, editError: null }),
+  setEditDraft: (editDraft) => set({ editDraft }),
+  setEditView: (editView) => set({ editView }),
+  setEditError: (editError) => set({ editError }),
   setEditing: (editing) =>
-    set({ editing, editRoomId: null, editFurnitureId: null, editError: null, selectedRoomId: null, profileAgentId: null }),
+    set({
+      editing, editRoomId: null, editFurnitureId: null, editError: null, editBrush: null, editDraft: null,
+      editTool: "select", editView: "plan", selectedRoomId: null, profileAgentId: null,
+    }),
   editSelect: (roomId) => set({ editRoomId: roomId, editFurnitureId: null, editError: null }),
   editPick: (furnitureId) => set({ editFurnitureId: furnitureId, editError: null }),
   placeFurniture: async (x, y) => {
-    const { editFurnitureId, snapshot } = get();
-    const item = snapshot?.office.rooms.flatMap((r) => r.furniture).find((f) => f.id === editFurnitureId);
-    if (!item) return;
+    const { editFurnitureId, editBrush, snapshot } = get();
+    const rooms = snapshot?.office.rooms ?? [];
+    const item = rooms.flatMap((r) => r.furniture).find((f) => f.id === editFurnitureId);
+    const room = roomAt(rooms, [x, y]);
     try {
-      await api.patch(`/furniture/${item.id}`, { grid_x: x, grid_y: y, rotation: item.rotation });
+      if (editBrush && room) await api.post(`/rooms/${room.id}/furniture`, { ...editBrush, grid_x: x, grid_y: y });
+      else if (item) await api.patch(`/furniture/${item.id}`, { grid_x: x, grid_y: y, rotation: item.rotation });
+      else return;
       set({ editError: null });
     } catch (failure) {
       set({ editError: failure });
@@ -107,6 +143,7 @@ export const useOffice = create<OfficeState>((set, get) => ({
         }
         break;
       case "agent.moved":
+      case "agent.strolled":
         if (agent) {
           const path = data.path as Tile[];
           const final = path[path.length - 1];
@@ -132,6 +169,7 @@ export const useOffice = create<OfficeState>((set, get) => ({
         break;
       }
       case "agent.bubble":
+      case "agent.chatter":
         set({ bubbles: { ...state.bubbles, [data.agent_id]: { text: data.text, until: ts + BUBBLE_MS } } });
         setTimeout(() => {
           const { [data.agent_id]: _expired, ...bubbles } = get().bubbles;
